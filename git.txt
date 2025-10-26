@@ -9,3 +9,14 @@ git push -u origin main
 git remote add origin https://github.com/nut2275/1stopinsurance-front-end.git
 git branch -M main
 git push -u origin main
+
+
+
+//อัพลง git
+git init
+git add .
+git commit -m "Initial commit for frontend project"
+git remote add origin https://github.com/nut2275/1stopinsurance-front-end.git
+
+git branch -M main
+git push -u origin main
