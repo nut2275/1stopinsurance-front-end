@@ -20,3 +20,9 @@ git remote add origin https://github.com/nut2275/1stopinsurance-front-end.git
 
 git branch -M main
 git push -u origin main
+
+
+// update
+git add .
+git commit -m "Update: Implement login functionality"
+git push
