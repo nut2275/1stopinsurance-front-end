@@ -40,7 +40,7 @@ export default function MenuAdmin({ activePage }: AdminHeaderProps) {
     }, [menuRef]);
 
     return (
-        <div className="top-0 z-50">
+        <div className="top-0 z-50" style={{zIndex:9999}}>
         {/* Header */}
         <header className="sticky bg-white/95 backdrop-blur-sm shadow-sm px-4 sm:px-6 h-20 flex items-center justify-between border-b border-slate-200">
 

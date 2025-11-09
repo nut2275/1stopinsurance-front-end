@@ -1,34 +1,28 @@
-"use client";
+'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Bell, ChevronDown, UserCircle, LogOut, Menu, X } from 'lucide-react';
+import Link from 'next/link';
+import Image from 'next/image';
 
-import Image from "next/image";
-import Link from "next/link";
-import MenuIcon from '@mui/icons-material/Menu';
-import CloseIcon from '@mui/icons-material/Close';
-import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone'; 
-import {jwtDecode} from 'jwt-decode'
+type AdminHeaderProps = {
+  activePage: string;
+};
 
 const navLinks = [
   { href: "/act", label: "ต่อ พ.ร.บ." },
-  { href: "/car-insurance", label: "ประกันรถยนต์" },
+  { href: "/customer/car-insurance/insurance", label: "ประกันรถยนต์" },
   { href: "/health-insurance", label: "ประกันสุขภาพ" },
   { href: "/about", label: "เกี่ยวกับเรา" },
   { href: "/contact", label: "ติดต่อเรา" },
   { href: "/promotions", label: "โปรโมชั่น" },
 ];
 
-// const getCustomerData = () => {
-//   const stored = ;
-//   console.log(stored);
-  
-//   if (stored) JSON.parse(stored);
-//   return
-// }
-
-function MenuLogined() {
+export default function MenuLogined({ activePage }: AdminHeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  // const [customerData, setCustomerData] = useState(JSON.parse(localStorage.getItem("customer") || "null"))
+  const [isNavOpen, setIsNavOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
   const logout = () => {
     localStorage.removeItem("token");
     setIsMenuOpen(false); 
@@ -36,118 +30,183 @@ function MenuLogined() {
   };
 
   const customerData = JSON.parse(localStorage.getItem("customer") || "null");
-  
 
-  
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [menuRef]);
+
   return (
-    <header className="bg-white border-b border-gray-200 relative z-10">
-      
-      {/* ⭐️ 1. ปรับโครงสร้างหลัก ⭐️
-        ใช้ justify-between กับ 2 กล่องหลัก: 
-        (กล่องซ้าย: โลโก้ + เมนู) และ (กล่องขวา: ไอคอน)
-      */}
-      <div className="flex justify-between items-center max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-        
-        {/* --------------------------- */}
-        {/* 2. กล่องซ้าย (โลโก้ + เมนู) */}
-        {/* --------------------------- */}
-        <div className="flex items-center space-x-8"> {/* 👈 เพิ่ม space-x-8 ระหว่างโลโก้กับเมนู */}
-          
-          {/* Logo (เหมือนเดิม) */}
-          <Link href="/customer/mainpage" className="flex items-center space-x-2 flex-shrink-0">
-            <Image src="/fotos/Logo.png" alt="logo" width={40} height={40} />
-            <span className="text-xl font-bold text-blue-900">1StopInsurance</span>
-          </Link>
+    <div className="top-0 z-50 z-[9999]" >
+      {/* Header */}
+      <header className="sticky bg-white/95 backdrop-blur-sm shadow-sm px-4 sm:px-6 h-20 flex items-center justify-between border-b border-slate-200">
 
-          {/* เมนู Desktop (เหมือนเดิม แต่ตอนนี้จะอยู่ชิดโลโก้) */}
-          <nav className="hidden md:flex space-x-7"> {/* 👈 เพิ่ม space-x-7 ให้ห่างขึ้นเล็กน้อย */}
-            {navLinks.map((link) => (
-              <Link 
-                key={link.label} 
-                href={link.href} 
-                className="text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors duration-200"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
+
+        {/* Desktop Right Side */}
+        <div className='flex'>
+            {/* Mobile Hamburger */}
+            <button
+                onClick={() => setIsNavOpen(!isNavOpen)}
+                className="md:hidden text-slate-600 hover:text-blue-600 p-2 rounded-md"
+                >
+                {isNavOpen ? <X size={26} /> : <Menu size={26} />}
+            </button>
+
+            {/* Logo */}
+            <div className="flex items-center gap-3">
+                <Link href="/customer/mainpage" className="flex items-center gap-2">
+                    <Image
+                        src="/fotos/Logo.png"
+                        alt="logo"
+                        width="48"
+                        height="48"
+                        className="h-10 w-auto"
+                        onError={(e) => {
+                            (e.target as HTMLImageElement).src = "https://placehold.co/48x48/1d4ed8/FFFFFF?text=1S";
+                        }}
+                    />
+                    <span className="text-lg sm:text-xl font-bold text-blue-800 sm:block">
+                    1StopInsurance
+                    </span>
+                </Link>
+            </div>
         </div>
 
-        {/* --------------------------- */}
-        {/* 3. กล่องขวา (ไอคอน) */}
-        {/* --------------------------- */}
-        <div className="flex items-center space-x-3 md:space-x-4">
-          
-          {/* ปุ่มกระดิ่ง */}
-          <Link href={'/customer/notification'} className="relative p-1.5 rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors">
-            <span className="absolute top-0 right-0 bg-red-500 text-white text-xs px-1 rounded-full">3</span>
-            <NotificationsNoneIcon className="h-6 w-6" />
-          </Link>
-          
-          {/* Profile Link */}
-          <Link href="/customer/profile" className="flex items-center space-x-2 group">
-            <Image 
-              src="/fotos/profile.png" 
-              alt="profile" 
-              width={40} 
-              height={40} 
-              className="rounded-full border border-gray-200" 
-            />
-            <span className="text-sm font-medium text-gray-700 hidden sm:inline group-hover:text-blue-600 transition-colors">
-              {customerData?.first_name}
-            </span>
-          </Link>
-          
-          {/* ปุ่ม Logout (Desktop) */}
-          <button 
-            onClick={logout} 
-            className="hidden md:block bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 cursor-pointer text-sm font-medium transition-colors duration-200"
-          >
-            ออกจากระบบ
-          </button>
 
-          {/* ปุ่ม Hamburger (Mobile) */}
-          <button
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="md:hidden p-1.5 rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors"
-            aria-label="Toggle menu"
-          >
-            {isMenuOpen ? <CloseIcon className="h-6 w-6" /> : <MenuIcon className="h-6 w-6" />}
-          </button>
-        </div>
-      </div>
-
-      {/* เมนู Dropdown สำหรับมือถือ (ส่วนนี้เหมือนเดิม 100% ครับ) */}
-      <div 
-        className={`
-          md:hidden absolute top-full left-0 w-full bg-white shadow-lg 
-          transition-all duration-300 ease-in-out
-          border-t border-gray-100 
-          ${isMenuOpen ? 'max-h-96 opacity-100 visible' : 'max-h-0 opacity-0 invisible'}
-          overflow-hidden
-        `}
-      >
-        <nav className="flex flex-col p-4 space-y-1">
+        {/* Desktop Nav */}
+        <div className="hidden xl:flex gap-2 bg-white p-3 rounded-full m-4 shadow">
           {navLinks.map((link) => (
             <Link
-              key={link.label}
+              key={link.href}
               href={link.href}
-              className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50"
-              onClick={() => setIsMenuOpen(false)}
+              className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-200 ${
+                activePage === link.href
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'text-slate-600 hover:bg-slate-200'
+              }`}
             >
               {link.label}
             </Link>
           ))}
-          <button
-            onClick={logout}
-            className="w-full text-left px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-red-50 mt-2"
-          >
-            ออกจากระบบ
-          </button>
-        </nav>
-      </div>
-    </header>
+        </div>
+
+        <div className=" flex items-center gap-5">
+            {/* Notification */}
+            <Link href={'notification'} className={`relative w-8 h-8 transition-colors rounded-full ${
+                  activePage === "notification"
+                    ? 'bg-blue-500 text-white shadow-md'
+                    : 'text-slate-500 hover:text-blue-600'
+                }`}>
+
+                <Bell size={24} className='m-1 ' />
+                <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                </span>
+            </Link>
+
+            {/* User Dropdown */}
+            <div className="relative" ref={menuRef}>
+                <button
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="flex items-center gap-2 text-slate-700 hover:bg-slate-100 p-2 rounded-full transition-colors"
+                >
+                <UserCircle size={28} className="text-blue-800" />
+                <span className="font-semibold text-sm hidden md:block">{customerData.first_name}</span>
+                <ChevronDown
+                    size={16}
+                    className={`transition-transform ${isMenuOpen ? 'rotate-180' : ''}`}
+                />
+                </button>
+
+                {isMenuOpen && (
+                <div className="cursor-pointer absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl py-2 animate-fade-in-down z-50">
+                    <div className="border-b">
+                      <Link href={"/customer/profile"} className="flex items-center gap-3 w-full px-4 py-2 text-sm  hover:bg-blue-50" >
+                        <UserCircle size={28} className="text-blue-800 " />
+                        <span className="font-semibold text-sm ">{customerData.first_name}</span>
+                      </Link>
+
+                      {/* < className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50">Profile</Link> */}
+                      {/* <p className="text-xs text-slate-500">Administrator</p> */}
+                    </div>
+                    <div
+                    onClick={logout}
+                    className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                    >
+                        <LogOut size={16} />
+                        <span>ออกจากระบบ</span>
+                    </div>
+                </div>
+                )}
+            </div>
+        </div>
+
+      </header>
+      
+      {/* Tablet */}
+      <header className='flex justify-center'>
+        <div className="hidden md:flex gap-2 bg-white p-3 rounded-full m-4 shadow  xl:hidden">
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-200 ${
+                activePage === link.href
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {link.label}
+            </Link>
+          ))}
+        </div>
+      </header>
+
+
+
+      {/* Mobile Nav (Dropdown style) */}
+      {isNavOpen && (
+        <div className="md:hidden bg-white shadow-md border-t border-slate-200 animate-fade-in-down">
+          <div className="flex flex-col p-3 space-y-2">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activePage === link.href
+                    ? 'bg-blue-600 text-white'
+                    : 'text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Animation */}
+      <style jsx global>{`
+        @keyframes fade-in-down {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-fade-in-down {
+          animation: fade-in-down 0.2s ease-out;
+        }
+      `}</style>
+    </div>
   );
 }
-
-export default MenuLogined;

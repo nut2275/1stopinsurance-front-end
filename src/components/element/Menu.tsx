@@ -6,7 +6,7 @@ import Image from "next/image";
 function Menu() {
   return (
 
-  <header className="flex justify-between items-center px-8 py-4 bg-white shadow-sm cursor-pointer">
+  <header className="flex justify-between items-center px-8 py-4 bg-white shadow-sm cursor-pointer" style={{zIndex:9999}}>
     <div className="flex items-center space-x-2">
       <Image
         src="/fotos/Logo.png" // ✅ ควรขึ้นต้นด้วย / เพื่ออ้างอิงจากโฟลเดอร์ public

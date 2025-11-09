@@ -9,7 +9,7 @@ import useSWR from 'swr';
 import { jwtDecode } from "jwt-decode";
 import InsuranceCard,{prompt, policies} from "./InsuranceCard";
 import { GlobalStyles } from "./GlobalStyles";
-
+import Link from "next/link";
 
 
 type DecodedToken = {
@@ -86,7 +86,7 @@ export default function ProfilePage() {
       */}
       <main className={`${prompt.variable} font-sans text-gray-800`}>
         {/* 1. ส่วน Header (Navbar) */}
-        <MenuLogined />
+        <MenuLogined activePage="/customer/profile"/>
 
         {/* 2. ส่วนโปรไฟล์ */}
         <ProfileCard user={profile} />
@@ -103,6 +103,12 @@ export default function ProfilePage() {
             />
           ))}
         </section>
+
+        <div className="flex justify-center mb-10">
+          <Link href={"/customer/car-insurance/car-Insurance-form"} className="bg-amber-400 w-40 h-10 flex justify-center items-center rounded-3xl">ยังไม่มีประกัน</Link>
+          {/* <Link href={"/customer/car-insurance/questionnaire"}>ยังไม่มีประกัน</Link> */}
+        </div>
+        
 
       </main>
     </>
