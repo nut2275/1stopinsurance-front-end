@@ -99,13 +99,13 @@ export default function CustomerTable({ initialData }: CustomerTableProps) {
           />
         </div>
 
-        {/* <Link
+        <Link
           href="/agent/agent_manage_customer/insurance/new"
           className="ml-4 px-6 py-2 bg-green-500 text-white font-semibold rounded-full shadow-lg 
                      hover:bg-green-600 transition duration-200 flex items-center whitespace-nowrap"
         >
           + เพิ่มลูกค้า
-        </Link> */}
+        </Link>
       </div>
 
       {/* ---------------- Table ---------------- */}
