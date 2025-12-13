@@ -35,6 +35,7 @@ const LoginForm = () => {
         
         // ✅ แก้ไข: แปลง Object เป็น String ก่อนเก็บ
         localStorage.setItem("customerId", JSON.stringify(_id)); 
+        localStorage.setItem("customerBuyId", decoded._id);
 
         console.log("Logged in user:", jwtDecode(token));
         if(decoded) router.push("/customer/profile")
@@ -68,7 +69,7 @@ const LoginForm = () => {
       localStorage.setItem("token", token);
       const customerId = customer._id || customer.id; 
       if (customerId) {
-          localStorage.setItem("customerId", customerId);
+          localStorage.setItem("customerBuyId", customerId);
           console.log("Saved Customer ID:", customerId);
       }
 

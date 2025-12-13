@@ -1,16 +1,12 @@
+import { useRouter } from "next/navigation";
+import { Prompt } from "next/font/google";
 
-import { Prompt } from "next/font/google"; // นำ Font มาไว้ที่นี่
-
-//================================================================
-// 2. TYPES (จาก lib/types.ts)
-//================================================================
 export type InsuranceStatus =
   | "active"
   | "expiring"
   | "expired"
   | "processing"
   | "pending_payment";
-
 
 export type InsurancePolicy = {
   id: string;
@@ -21,14 +17,13 @@ export type InsurancePolicy = {
   policyNumber: string;
 };
 
-
-//--- Component: InsuranceCard ---
 type StatusDetails = {
   text: string;
   badgeColor: string;
   borderColor: string;
   dateLabel: string;
 };
+
 const statusConfig: Record<InsuranceStatus, StatusDetails> = {
   active: {
     text: "กำลังใช้งาน",
@@ -62,44 +57,26 @@ const statusConfig: Record<InsuranceStatus, StatusDetails> = {
   },
 };
 
-
-
-// export const policies: InsurancePolicy[] = [
-//   {
-//     id: "p1",
-//     status: "active",
-//     date: "20/08/68",
-//     title: "ประกันรถยนต์: วิริยะประกันภัย ชั้น 1",
-//     registration: "เครชู้ 88",
-//     policyNumber: "1124692",
-//   },
-//   {
-//     id: "p2",
-//     status: "expiring",
-//     date: "20/08/68",
-//     title: "ประกันรถยนต์: วิริยะประกันภัย ชั้น 1",
-//     registration: "เครชู้ 88",
-//     policyNumber: "1124692",
-//   },
-// ];
-
-
-//================================================================
-// 5. FONT SETUP (จาก layout.tsx)
-//================================================================
 export const prompt = Prompt({
   subsets: ["latin", "thai"],
   weight: ["300", "400", "500", "600", "700"],
   variable: "--font-prompt",
 });
 
-
 type InsuranceCardProps = {
   policy: InsurancePolicy;
   className?: string;
 };
-export default function InsuranceCard({ policy, className = "" }: InsuranceCardProps) {
+
+export default function InsuranceCard({
+  policy,
+  className = "",
+}: InsuranceCardProps) {
+  const router = useRouter();
   const config = statusConfig[policy.status];
+
+  const isPendingPayment = policy.status === "pending_payment";
+
   return (
     <div className={`card border-t-4 ${config.borderColor} ${className}`}>
       <div className="flex justify-between items-center mb-2">
@@ -110,6 +87,7 @@ export default function InsuranceCard({ policy, className = "" }: InsuranceCardP
           {config.dateLabel}: {policy.date}
         </span>
       </div>
+
       <p className="text-sm text-gray-700">
         <b>ประกันรถยนต์:</b> {policy.title.split(": ")[1]}
       </p>
@@ -117,12 +95,25 @@ export default function InsuranceCard({ policy, className = "" }: InsuranceCardP
       <p className="text-sm text-gray-600 mb-4">
         เลขกรมธรรม์: {policy.policyNumber}
       </p>
+
       <div className="flex justify-between gap-2">
-        <button className="btn btn-dark flex-1">
+        <button
+          className="btn btn-dark flex-1"
+          onClick={() => router.push(`/customer/purchase/${policy.id}`)}
+        >
           <i className="fa-regular fa-file-lines mr-2"></i> ดูเอกสาร
         </button>
-        <button className="btn btn-green flex-1">
-          <i className="fa-solid fa-phone-volume mr-2"></i> ติดต่อเจ้าหน้าที่
+
+        <button
+          className="btn btn-green flex-1"
+          onClick={() =>
+            router.push(`/customer/agent/${policy.id}`)
+          }
+        >
+          <i className="fa-solid fa-phone-volume mr-2"></i>
+          {isPendingPayment
+            ? "ติดต่อเจ้าหน้าที่เพื่อชำระค่าประกัน"
+            : "ติดต่อเจ้าหน้าที่"}
         </button>
       </div>
     </div>
