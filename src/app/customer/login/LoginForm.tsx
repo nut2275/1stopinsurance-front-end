@@ -24,25 +24,22 @@ const LoginForm = () => {
 
 
 
-    useEffect(() => {
-      const token = localStorage.getItem("token");
-      if (token) {
-          const decoded = jwtDecode<{ username: string, _id:object }>(token);
-          console.log(decoded._id);
-          
-          localStorage.setItem("customerId", decoded._id);
-          console.log("Logged in user:", jwtDecode(token));
-          if(decoded) router.push("/customer/profile")
-          
-          
-          // router.push("/page2", {
-          //   state: { userId: 123, username: "nutthapon" }
-          // });
-          // return
-      } 
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token) {
+        // คง type เป็น object ตามที่คุณบอก
+        const decoded = jwtDecode<{ username: string, _id: object }>(token);
 
-    }, []);
+        const _id = decoded._id;
+        console.log(decoded._id);
+        
+        // ✅ แก้ไข: แปลง Object เป็น String ก่อนเก็บ
+        localStorage.setItem("customerId", JSON.stringify(_id)); 
 
+        console.log("Logged in user:", jwtDecode(token));
+        if(decoded) router.push("/customer/profile")
+    }
+  }, [router]);
   
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
