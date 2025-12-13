@@ -6,6 +6,7 @@ function Footer() {
     // 1. เพิ่ม role="contentinfo" เพื่อ accessibility
     // 2. ปรับ padding/gap ให้อ่านง่ายขึ้นบนมือถือ
     <footer 
+      id='footer'
       role="contentinfo" 
       className="bg-blue-900 text-white text-sm relative w-full cursor-pointer"
     >

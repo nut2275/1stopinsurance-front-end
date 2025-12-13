@@ -26,7 +26,7 @@ export default function MenuAdmin({ activePage }: AdminHeaderProps) {
     const logout = () => {
         localStorage.removeItem("token");
         setIsMenuOpen(false); 
-        window.location.assign("/agent/login");
+        window.location.assign("/");
     };
 
     useEffect(() => {

@@ -12,9 +12,6 @@ type AdminHeaderProps = {
 const navLinks = [
   { href: '/agent/agent_dashboard', label: 'แดชบอร์ด' },
   { href: '/agent/agent_manage_customer', label: 'จัดการลูกค้า' },
-  // { href: '/agent/manage-insurance', label: 'จัดการประกัน' },
-  // { href: '/agent/manage-promotion', label: 'จัดการโปรโมชัน' },
-  // { href: '/agent/manage-customer', label: 'จัดการลูกค้า' },
 ];
 
 export default function MenuAgent({ activePage }: AdminHeaderProps) {

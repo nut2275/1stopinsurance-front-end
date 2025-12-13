@@ -38,6 +38,7 @@ export default function UploadDocumentsPage() {
       const storedSearch = localStorage.getItem("searchCriteria"); 
       if (storedSearch) {
           const parsedData = JSON.parse(storedSearch);
+          
           setSearchData(parsedData);
           console.log("Loaded Car Data:", parsedData); // เช็คว่ามาไหม
       }
@@ -151,3 +152,4 @@ const UploadCard = ({ title, icon, preview, inputRef, onUpload, onChange, onRemo
     </div>
   );
 };
+

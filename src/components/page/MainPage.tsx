@@ -38,18 +38,13 @@ export default function MainPage() {
                 <p className="text-xl"><span className="text-blue-800 font-bold">ผ่อน 0%</span> นาน 10 เดือน</p>
               </div>
 
-              <Link href=""
+              <Link href="customer/car-insurance/car-Insurance-form"
                  className="inline-block mt-8 bg-blue-600 text-white px-8 py-3 rounded-full font-bold hover:bg-blue-700 transition shadow-md hover:shadow-lg transform hover:-translate-y-1">
                  เช็คเบี้ยประกันรถยนต์ →
               </Link>
             </div>
           </div>
 
-          <div className="flex justify-center mt-8 space-x-2">
-            <span className="w-3 h-3 bg-blue-900 rounded-full cursor-pointer"></span>
-            <span className="w-3 h-3 bg-gray-300 rounded-full cursor-pointer hover:bg-blue-400"></span>
-            <span className="w-3 h-3 bg-gray-300 rounded-full cursor-pointer hover:bg-blue-400"></span>
-          </div>
         </section>
 
         {/* Partners Section */}

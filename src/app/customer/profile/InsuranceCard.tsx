@@ -64,48 +64,24 @@ const statusConfig: Record<InsuranceStatus, StatusDetails> = {
 
 
 
-export const policies: InsurancePolicy[] = [
-  {
-    id: "p1",
-    status: "active",
-    date: "20/08/68",
-    title: "ประกันรถยนต์: วิริยะประกันภัย ชั้น 1",
-    registration: "เครชู้ 88",
-    policyNumber: "1124692",
-  },
-  {
-    id: "p2",
-    status: "expiring",
-    date: "20/08/68",
-    title: "ประกันรถยนต์: วิริยะประกันภัย ชั้น 1",
-    registration: "เครชู้ 88",
-    policyNumber: "1124692",
-  },
-  {
-    id: "p3",
-    status: "expired",
-    date: "01/06/68",
-    title: "ประกันรถยนต์: ธนชาตประกันภัย ชั้น 2+",
-    registration: "พร 2214",
-    policyNumber: "5578912",
-  },
-  {
-    id: "p4",
-    status: "processing",
-    date: "15/09/68",
-    title: "ประกันรถยนต์: วิริยะประกันภัย ชั้น 1",
-    registration: "เครชู้ 88",
-    policyNumber: "1124692",
-  },
-  {
-    id: "p5",
-    status: "pending_payment",
-    date: "25/09/68",
-    title: "ประกันรถยนต์: วิริยะประกันภัย ชั้น 1",
-    registration: "เครชู้ 88",
-    policyNumber: "1124692",
-  },
-];
+// export const policies: InsurancePolicy[] = [
+//   {
+//     id: "p1",
+//     status: "active",
+//     date: "20/08/68",
+//     title: "ประกันรถยนต์: วิริยะประกันภัย ชั้น 1",
+//     registration: "เครชู้ 88",
+//     policyNumber: "1124692",
+//   },
+//   {
+//     id: "p2",
+//     status: "expiring",
+//     date: "20/08/68",
+//     title: "ประกันรถยนต์: วิริยะประกันภัย ชั้น 1",
+//     registration: "เครชู้ 88",
+//     policyNumber: "1124692",
+//   },
+// ];
 
 
 //================================================================

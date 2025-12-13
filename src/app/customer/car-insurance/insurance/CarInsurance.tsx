@@ -6,6 +6,8 @@ import { Search, Assignment } from "@mui/icons-material";
 import MenuLogined from "@/components/element/MenuLogined";
 import InsuranceCard, { InsurancePlan } from "./InsuranceCard";
 
+// Interface สำหรับข้อมูลดิบที่รับมาจาก Backend (แทน any)
+
 export default function InsuranceResultsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -41,6 +43,8 @@ export default function InsuranceResultsPage() {
         if (storedPlans) {
             try {
                 const allPlans = JSON.parse(storedPlans);
+                // console.log(allPlans);
+                
                 let budgetMax = 999999;
                 let userHasSurvey = false;
 
