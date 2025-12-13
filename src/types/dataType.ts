@@ -1,5 +1,6 @@
 // Customer db
 export type Customer = {
+  _id: string;
   first_name:string;
   last_name:string;
   email: string;

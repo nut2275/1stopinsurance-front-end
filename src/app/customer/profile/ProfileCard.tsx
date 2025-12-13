@@ -17,6 +17,7 @@ const iconMap = {
 };
 
 function ProfileCard({ user }: { user: Customer | null }) {
+
   const dataFields = user ? [
     { label: "ที่อยู่", value: user.address, iconKey: "location" },
     { label: "อีเมล", value: user.email, iconKey: "email" },
@@ -24,10 +25,25 @@ function ProfileCard({ user }: { user: Customer | null }) {
     { label: "วันเกิด", value: new Date(user.birth_date).toLocaleDateString("th-TH"), iconKey: "cake" },
   ] : [];
 
+  // ✅ สร้าง Object ลิงก์พร้อมข้อมูลที่จะส่งไป
+  const editProfileHref = user ? {
+    pathname: "/customer/profile/edit-profile",
+    query: {
+      _id: user._id,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      email: user.email,
+      phone: user.phone,
+      address: user.address,
+      // แปลงวันที่เป็น string มาตรฐาน (ISO) เพื่อให้ฝั่งรับเอาไปใช้ง่ายๆ
+      birth_date: user.birth_date ? new Date(user.birth_date).toISOString() : "",
+      imgProfile_customer: user.imgProfile_customer
+    }
+  } : "#"; // ถ้าไม่มี user ให้ลิงก์ไปที่ #
+
   return (
     <section
-      className="max-w-5xl mx-auto mt-12 mb-10 bg-white rounded-2xl shadow-2xl 
-      p-8 lg:p-12 flex flex-col md:flex-row items-center md:items-start gap-8  mx-4"
+      className="max-w-5xl mx-auto mt-12 mb-10 bg-white rounded-2xl shadow-2xl p-8 lg:p-12 flex flex-col md:flex-row items-center md:items-start gap-8 mx-4"
       style={{ boxShadow: '0 15px 30px rgba(0,0,0,0.08)' }}
     >
       <div className="flex-shrink-0 relative">
@@ -50,8 +66,13 @@ function ProfileCard({ user }: { user: Customer | null }) {
             {user ? `${user.first_name} ${user.last_name}` : "กำลังโหลด..."}
           </h2>
 
+          {/* ✅ ปุ่ม Edit Desktop: ใช้ editProfileHref ที่เตรียมไว้ */}
           {user && (
-            <Link href="/customer/profile/edit-profile" title="แก้ไขโปรไฟล์" className="hidden md:block">
+            <Link 
+                href={editProfileHref} // <--- แก้ตรงนี้
+                title="แก้ไขโปรไฟล์" 
+                className="hidden md:block"
+            >
               <EditIcon
                 className="text-4xl text-gray-400 hover:text-blue-600 cursor-pointer transition duration-200"
                 style={{ fontSize: '2rem' }}
@@ -86,9 +107,13 @@ function ProfileCard({ user }: { user: Customer | null }) {
         </div>
       </div>
 
+      {/* ✅ ปุ่ม Edit Mobile: ใช้ editProfileHref เหมือนกัน */}
       {user && (
         <div className="md:hidden mt-4 self-center relative z-50">
-          <Link href="/customer/profile/edit-profile" title="แก้ไขโปรไฟล์">
+          <Link 
+            href={editProfileHref} // <--- แก้ตรงนี้
+            title="แก้ไขโปรไฟล์"
+          >
             <EditIcon
               className="text-4xl text-gray-400 hover:text-blue-600 cursor-pointer transition duration-200"
               style={{ fontSize: '2rem' }}

@@ -28,6 +28,9 @@ const LoginForm = () => {
       const token = localStorage.getItem("token");
       if (token) {
           const decoded = jwtDecode<{ username: string, _id:object }>(token);
+          console.log(decoded._id);
+          
+          localStorage.setItem("customerId", decoded._id);
           console.log("Logged in user:", jwtDecode(token));
           if(decoded) router.push("/customer/profile")
           
@@ -66,6 +69,11 @@ const LoginForm = () => {
 
       // เก็บ token
       localStorage.setItem("token", token);
+      const customerId = customer._id || customer.id; 
+      if (customerId) {
+          localStorage.setItem("customerId", customerId);
+          console.log("Saved Customer ID:", customerId);
+      }
 
       /// ✅ 3. เก็บข้อมูล customer ใน localStorage ด้วย (สำหรับแสดงหน้า profile)
       localStorage.setItem("customer", JSON.stringify(customer));

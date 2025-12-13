@@ -224,21 +224,20 @@ export default function CarInsuranceForm() {
         setIsLoading(true);
 
         const body = {
-            year,
+            year: year,
             carBrand: brand,
-            model,
+            model: model,
             subModel: submodel,
             level: selectedType
         };
 
         try {
+            localStorage.setItem("searchCriteria", JSON.stringify(body));
             // ************ การเรียก API ใน Next.js ************
+            // ส่งไป backend เพื่อดึงแผน
             const query = new URLSearchParams(body).toString();
-            // ** URL นี้เป็นเพียงตัวอย่าง ควรเปลี่ยนเป็น API Endpoint จริงของคุณ **
-            const res = await fetch(`http://localhost:3000/api/plans?${query}`); 
+            const res = await fetch(`http://localhost:5000/api/plans?${query}`);
             const data = await res.json();
-            
-            // เก็บผลลัพธ์
             localStorage.setItem("recommendedPlans", JSON.stringify(data));
             
             router.push("/customer/car-insurance/insurance");

@@ -10,9 +10,9 @@ type AdminHeaderProps = {
 };
 
 const navLinks = [
-  { href: "/act", label: "ต่อ พ.ร.บ." },
+  // { href: "/act", label: "ต่อ พ.ร.บ." },
   { href: "/customer/car-insurance/insurance", label: "ประกันรถยนต์" },
-  { href: "/health-insurance", label: "ประกันสุขภาพ" },
+  // { href: "/health-insurance", label: "ประกันสุขภาพ" },
   { href: "/about", label: "เกี่ยวกับเรา" },
   { href: "/contact", label: "ติดต่อเรา" },
   { href: "/promotions", label: "โปรโมชั่น" },

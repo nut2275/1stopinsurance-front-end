@@ -10,11 +10,11 @@ type AdminHeaderProps = {
 };
 
 const navLinks = [
-  { href: '/agent/agent_dashboard', label: 'แดชบอร์ด' },
-  { href: '/agent/agent_manage_customer', label: 'จัดการตัวแทน' },
-  { href: '/agent/manage-insurance', label: 'จัดการประกัน' },
-  { href: '/agent/manage-promotion', label: 'จัดการโปรโมชัน' },
-  { href: '/agent/manage-customer', label: 'จัดการลูกค้า' },
+  { href: '/root/admin/dashboard', label: 'แดชบอร์ด' },
+  { href: '/root/admin/agents', label: 'จัดการตัวแทน' },
+  { href: '/root/admin/insurances', label: 'จัดการประกัน' },
+  { href: '/root/admin/promotions', label: 'จัดการโปรโมชัน' },
+  { href: '/root/admin/customers', label: 'จัดการลูกค้า' },
 ];
 
 
