@@ -66,23 +66,25 @@ const Login_AgentPage = () => {
           <div className="bg-white border-2 border-blue-900 rounded-xl shadow p-8 w-full max-w-md text-center">
             <h2 className="text-lg font-bold text-blue-900 mb-6">เข้าสู่ระบบนายหน้า</h2>
 
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} className="text-start">
+              <label className="px-2">ชื่อผู้ใช้</label>
               <input
                 type="text"
                 name="username"
                 placeholder="ชื่อผู้ใช้"
                 value={form.username}
                 onChange={handleChange}
-                className="w-full border border-blue-900 rounded-full px-4 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="w-full border mt-3 border-blue-900 rounded-full px-4 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-600"
                 required
               />
+              <label className="p-2">รหัสผ่าน</label>
               <input
                 type="password"
                 name="password"
                 placeholder="รหัสผ่าน"
                 value={form.password}
                 onChange={handleChange}
-                className="w-full border border-blue-900 rounded-full px-4 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="w-full border mt-3 border-blue-900 rounded-full px-4 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-600"
                 required
               />
               <button type="submit" className="w-full bg-blue-600 text-white py-3 rounded-full font-bold hover:bg-blue-700 transition">

@@ -35,7 +35,7 @@ const LoginForm = () => {
         
         // ✅ แก้ไข: แปลง Object เป็น String ก่อนเก็บ
         localStorage.setItem("customerId", JSON.stringify(_id)); 
-        localStorage.setItem("customerBuyId", decoded._id);
+        localStorage.setItem("customerBuyId", JSON.stringify(decoded._id));
 
         console.log("Logged in user:", jwtDecode(token));
         if(decoded) router.push("/customer/profile")
@@ -99,23 +99,25 @@ const LoginForm = () => {
           <div className="bg-white border-2 border-blue-900 rounded-xl shadow p-8 w-full max-w-md text-center">
             <h2 className="text-lg font-bold text-blue-900 mb-6">เข้าสู่ระบบสมาชิก</h2>
 
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} className="text-start">
+              <label className="p-2">ชื่อผู้ใช้</label>
               <input
                 type="text"
                 name="username"
                 placeholder="ชื่อผู้ใช้"
                 value={form.username}
                 onChange={handleChange}
-                className="w-full border border-blue-900 rounded-full px-4 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="w-full mt-3 border border-blue-900 rounded-full px-4 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-600"
                 required
               />
+              <label className="p-2">รหัสผ่าน</label>
               <input
                 type="password"
                 name="password"
                 placeholder="รหัสผ่าน"
                 value={form.password}
                 onChange={handleChange}
-                className="w-full border border-blue-900 rounded-full px-4 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="w-full border mt-3 border-blue-900 rounded-full px-4 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-600"
                 required
               />
               <button

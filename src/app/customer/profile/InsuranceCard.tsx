@@ -107,7 +107,8 @@ export default function InsuranceCard({
         <button
           className="btn btn-green flex-1"
           onClick={() =>
-            router.push(`/customer/agent/${policy.id}`)
+            // router.push(`/customer/agent/${policy.id}`)
+            router.push(`/customer/contact-agent/${policy.id}`)
           }
         >
           <i className="fa-solid fa-phone-volume mr-2"></i>
@@ -119,3 +120,4 @@ export default function InsuranceCard({
     </div>
   );
 }
+//http://localhost:3000/customer/contact-agent?purchaseId=ไอดีของใบสั่งซื้อ

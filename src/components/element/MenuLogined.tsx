@@ -14,6 +14,7 @@ const navLinks = [
   { href: "/customer/car-insurance/car-Insurance-form", label: "ประกันรถยนต์" },
   { href: "/about", label: "เกี่ยวกับเรา" },
   { href: "#footer", label: "ติดต่อเรา" },
+  { href: "/customer/profile", label: "กรมธรรมของฉัน" },
 ];
 
 export default function MenuLogined({ activePage }: AdminHeaderProps) {
