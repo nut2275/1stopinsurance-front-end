@@ -6,10 +6,38 @@ import { Search, Assignment } from "@mui/icons-material";
 import MenuLogined from "@/components/element/MenuLogined";
 import InsuranceCard, { InsurancePlan } from "./InsuranceCard";
 
-// Interface สำหรับข้อมูลดิบที่รับมาจาก Backend (แทน any)
+/* =======================
+   1️⃣ Raw data จาก Backend
+======================= */
+interface RawInsurancePlan {
+  _id?: string;
+  id?: string;
+  insuranceBrand?: string;
+  company?: string;
+  img?: string;
+  logoSrc?: string;
+  level?: string;
+  repairType?: string;
+  coverage?: string[];
+  features?: string[];
+  hasFloodCoverage?: boolean;
+  hasFireCoverage?: boolean;
+  personalAccidentCoverageIn?: number;
+  premium?: number;
+  propertyDamageCoverage?: number;
+  coverageAmount?: number;
+}
+
+/* =======================
+   2️⃣ Survey Answer
+======================= */
+interface SurveyAnswers {
+  budget?: "low" | "mid-low" | "mid" | "high";
+}
 
 export default function InsuranceResultsPage() {
   const router = useRouter();
+
   const [loading, setLoading] = useState(true);
   const [recommendedPlans, setRecommendedPlans] = useState<InsurancePlan[]>([]);
   const [alternativePlans, setAlternativePlans] = useState<InsurancePlan[]>([]);
@@ -19,10 +47,13 @@ export default function InsuranceResultsPage() {
     search: "",
     companies: new Set<string>(),
   });
+
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
-  // Helper เลือกรูป (เหมือนเดิม)
-  const getBrandLogo = (brandName: string) => {
+  /* =======================
+     Helper: Logo
+  ======================= */
+  const getBrandLogo = (brandName?: string): string => {
     if (!brandName) return "/fotos/Insur1.png";
     const name = brandName.toLowerCase();
     if (name.includes("วิริยะ")) return "/fotos/Insur5.png";
@@ -35,130 +66,122 @@ export default function InsuranceResultsPage() {
     return "/fotos/Insur1.png";
   };
 
+  /* =======================
+     Load + Map Data
+  ======================= */
   useEffect(() => {
-    const fetchData = () => {
-        const storedPlans = localStorage.getItem("recommendedPlans");
-        const storedAnswers = localStorage.getItem("insuranceAnswers");
-        
-        if (storedPlans) {
-            try {
-                const allPlans = JSON.parse(storedPlans);
-                // console.log(allPlans);
-                
-                let budgetMax = 999999;
-                let userHasSurvey = false;
+    const storedPlans = localStorage.getItem("recommendedPlans");
+    const storedAnswers = localStorage.getItem("insuranceAnswers");
 
-                // เช็คว่า User เคยทำแบบสอบถามหรือยัง
-                if (storedAnswers) {
-                    const answers = JSON.parse(storedAnswers);
-                    userHasSurvey = true;
-                    switch (answers.budget) {
-                        case 'low': budgetMax = 5000; break;
-                        case 'mid-low': budgetMax = 8000; break;
-                        case 'mid': budgetMax = 12000; break;
-                        case 'high': budgetMax = 999999; break;
-                    }
-                }
+    if (!storedPlans) {
+      setLoading(false);
+      return;
+    }
 
-                setHasSurvey(userHasSurvey);
+    try {
+      const allPlans: RawInsurancePlan[] = JSON.parse(storedPlans);
 
-                const inBudget: InsurancePlan[] = [];
-                const overBudget: InsurancePlan[] = [];
+      let budgetMax = Infinity;
+      let userHasSurvey = false;
 
-                allPlans.forEach((item: any) => {
-                    let featuresList: string[] = [];
-                    if (Array.isArray(item.coverage) && item.coverage.length > 0) {
-                        featuresList = item.coverage;
-                    } else {
-                        featuresList = [
-                            (item.hasFloodCoverage || item.features?.includes("น้ำท่วม")) ? "น้ำท่วม" : "",
-                            (item.hasFireCoverage || item.features?.includes("ไฟไหม้")) ? "ไฟไหม้" : "",
-                            (item.personalAccidentCoverageIn > 0 || item.features?.includes("สุขภาพ")) ? "สุขภาพ" : "",
-                        ].filter(Boolean);
-                    }
+      if (storedAnswers) {
+        const answers: SurveyAnswers = JSON.parse(storedAnswers);
+        userHasSurvey = true;
 
-                    const mappedPlan: InsurancePlan = {
-                        id: item._id || item.id,
-                        company: item.insuranceBrand || item.company || "ไม่ระบุ",
-                        logoSrc: item.img || item.logoSrc || getBrandLogo(item.insuranceBrand || item.company),
-                        level: item.level || "-",
-                        repairType: item.repairType || "อู่",
-                        features: featuresList,
-                        premium: item.premium || 0,
-                        coverageAmount: item.propertyDamageCoverage || item.coverageAmount || 0,
-                        installment: "ผ่อน 0% 10 เดือน",
-                    };
-
-                    // Logic การแยกกลุ่ม (ตาม Requirement ใหม่)
-                    if (userHasSurvey) {
-                        // Case: มาจากหน้า Survey -> แยกตามงบ
-                        if (mappedPlan.premium <= budgetMax) {
-                            inBudget.push(mappedPlan);
-                        } else {
-                            overBudget.push(mappedPlan);
-                        }
-                    } else {
-                        // Case: มาจากหน้า Form -> 
-                        // เรายังไม่รู้งบจริงๆ แต่สมมติว่า Plans ที่ค้นหามาได้คือ "ตรงเงื่อนไข" ไว้ก่อน (ใส่ inBudget)
-                        // ส่วน overBudget จะว่างไว้
-                        // แต่ถ้าเราอยากทำ Upsell (กรณีไม่เจอแผน) เราอาจจะใส่ logic เพิ่มตรงนี้ได้ แต่ตามโจทย์ให้ใช้ allPlans เป็นฐาน
-                        
-                        // ในที่นี้สมมติว่า backend ส่งมาเฉพาะที่ตรงรุ่นรถ แต่ราคาหลากหลาย
-                        // เราถือว่าทั้งหมดคือ Recommended ไปก่อน (inBudget)
-                        inBudget.push(mappedPlan); 
-                        
-                        // **เพิ่มเติม**: เพื่อรองรับ case "หาไม่เจอ ให้แนะนำแผนอื่น"
-                        // ถ้า Backend ส่งมาน้อย หรือไม่ตรง เราอาจจะ Mock แผนแนะนำใส่ overBudget ไว้เผื่อ
-                        // (แต่ในโค้ดนี้ สมมติว่า Backend ส่งแผนแนะนำมาใน allPlans แล้วแค่เราต้อง filter เอาเอง)
-                    }
-                });
-
-                // *** Logic พิเศษตาม Requirement ***
-                // ถ้ามาจากหน้า Form (ไม่มี Survey) และหาไม่เจอ (inBudget ว่าง) -> ให้เอาแผนทั้งหมดไปใส่ overBudget แทน เพื่อแสดงเป็นแผนแนะนำ
-                if (!userHasSurvey && inBudget.length === 0 && allPlans.length > 0) {
-                     // ย้ายจาก inBudget (ซึ่งว่าง) มาเป็น overBudget เพื่อแสดงใน Section แนะนำแทน
-                     // (ต้องแน่ใจว่า backend ส่ง data มานะ ถ้า backend ส่ง [] มา ก็จบข่าว)
-                     // สมมติว่า backend ส่งแผนใกล้เคียงมาให้ด้วยแต่เรา filter ทิ้งไปก่อนหน้านี้
-                }
-
-                setRecommendedPlans(inBudget);
-                setAlternativePlans(overBudget);
-
-            } catch (error) {
-                console.error("Error parsing plans:", error);
-            }
+        switch (answers.budget) {
+          case "low":
+            budgetMax = 5000;
+            break;
+          case "mid-low":
+            budgetMax = 8000;
+            break;
+          case "mid":
+            budgetMax = 12000;
+            break;
+          case "high":
+          default:
+            budgetMax = Infinity;
         }
-        setLoading(false);
-    };
+      }
 
-    fetchData();
+      setHasSurvey(userHasSurvey);
+
+      const inBudget: InsurancePlan[] = [];
+      const overBudget: InsurancePlan[] = [];
+
+      allPlans.forEach((item) => {
+        const features: string[] =
+          Array.isArray(item.coverage) && item.coverage.length > 0
+            ? item.coverage
+            : [
+                item.hasFloodCoverage ? "น้ำท่วม" : "",
+                item.hasFireCoverage ? "ไฟไหม้" : "",
+                item.personalAccidentCoverageIn && item.personalAccidentCoverageIn > 0
+                  ? "สุขภาพ"
+                  : "",
+              ].filter(Boolean);
+
+        const mappedPlan: InsurancePlan = {
+          id: item._id ?? item.id ?? crypto.randomUUID(),
+          company: item.insuranceBrand ?? item.company ?? "ไม่ระบุ",
+          logoSrc: item.img ?? item.logoSrc ?? getBrandLogo(item.insuranceBrand),
+          level: item.level ?? "-",
+          repairType: item.repairType ?? "อู่",
+          features,
+          premium: item.premium ?? 0,
+          coverageAmount: item.propertyDamageCoverage ?? item.coverageAmount ?? 0,
+          installment: "ผ่อน 0% 10 เดือน",
+        };
+
+        if (userHasSurvey) {
+          mappedPlan.premium <= budgetMax
+            ? inBudget.push(mappedPlan)
+            : overBudget.push(mappedPlan);
+        } else {
+          inBudget.push(mappedPlan);
+        }
+      });
+
+      setRecommendedPlans(inBudget);
+      setAlternativePlans(overBudget);
+    } catch (error) {
+      console.error("Parse error:", error);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
+  /* =======================
+     Filters
+  ======================= */
   const handleCompanyToggle = (company: string) => {
     setFilters((prev) => {
-      const newCompanies = new Set(prev.companies);
-      if (newCompanies.has(company)) newCompanies.delete(company);
-      else newCompanies.add(company);
-      return { ...prev, companies: newCompanies };
+      const companies = new Set(prev.companies);
+      companies.has(company) ? companies.delete(company) : companies.add(company);
+      return { ...prev, companies };
     });
   };
 
-  const filterList = (plans: InsurancePlan[]) => {
-      return plans.filter(p => {
-          const matchSearch = filters.search ? p.company.toLowerCase().includes(filters.search.toLowerCase()) : true;
-          const matchCheckbox = filters.companies.size > 0 ? filters.companies.has(p.company) : true;
-          return matchSearch && matchCheckbox;
-      });
-  };
+  const filterList = (plans: InsurancePlan[]): InsurancePlan[] =>
+    plans.filter((p) => {
+      const matchSearch = filters.search
+        ? p.company.toLowerCase().includes(filters.search.toLowerCase())
+        : true;
+      const matchCompany =
+        filters.companies.size > 0 ? filters.companies.has(p.company) : true;
+      return matchSearch && matchCompany;
+    });
 
   const goToQuestionnaire = () => {
-      router.push("/customer/car-insurance/questionnaire");
+    router.push("/customer/car-insurance/questionnaire");
   };
 
-  // เช็คจำนวนแผนที่แสดงผลหลัง Filter
   const showRecommended = filterList(recommendedPlans).length > 0;
   const showAlternative = filterList(alternativePlans).length > 0;
 
+  /* =======================
+     JSX (เหมือนเดิม)
+  ======================= */
   return (
     <div className="flex flex-col min-h-screen bg-[#cfe2ff]">
       <MenuLogined activePage="/customer/car-insurance/insurance" />

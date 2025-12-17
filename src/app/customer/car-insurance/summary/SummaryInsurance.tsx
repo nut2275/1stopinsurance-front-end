@@ -4,6 +4,8 @@ import React, { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import MenuLogined from "@/components/element/MenuLogined";
+import api from "@/services/api";
+import axios from "axios";
 
 interface InsurancePlan {
   id: number | string;
@@ -23,10 +25,23 @@ interface InsurancePlan {
   firstLossCoverage: number;
 }
 
+interface AgentProfile {
+  _id: string;
+  first_name: string;
+  last_name: string;
+  agent_license_number: string;
+  imgProfile?: string;
+}
+
 export default function SummaryPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const planId = searchParams.get("id");
+
+  const [agentProfile, setAgentProfile] = useState<AgentProfile | null>(null);
+  const [agentLoading, setAgentLoading] = useState(false);
+  const [agentError, setAgentError] = useState<string | null>(null);
+
 
   const [selectedPlan, setSelectedPlan] = useState<InsurancePlan | null>(null);
   const [loading, setLoading] = useState(true);
@@ -44,6 +59,7 @@ export default function SummaryPage() {
   };
 
   useEffect(() => {
+    
     if (!planId) {
         setLoading(false);
         return;
@@ -76,6 +92,40 @@ export default function SummaryPage() {
     }
     setLoading(false);
   }, [planId]);
+
+  useEffect(() => {
+  if (!agentCode || agentCode.length < 3) {
+    setAgentProfile(null);
+    setAgentError(null);
+    return;
+  }
+
+  const controller = new AbortController();
+
+  const fetchAgent = async () => {
+    try {
+      setAgentLoading(true);
+      setAgentError(null);
+
+      const res = await api.get(`/agents/by-license/${agentCode}`, {
+        signal: controller.signal, // ✅ axios รองรับ AbortController
+      });
+
+      setAgentProfile(res.data);
+    } catch (err) {
+      if (axios.isCancel(err)) return;
+
+      setAgentProfile(null);
+      setAgentError("ไม่พบข้อมูลตัวแทน");
+    } finally {
+      setAgentLoading(false);
+    }
+  };
+
+  fetchAgent();
+  return () => controller.abort();
+}, [agentCode]);
+
 
   const handleProceed = () => {
       if (planId) {
@@ -140,9 +190,44 @@ export default function SummaryPage() {
                 <input type="text" value={agentCode} onChange={(e) => setAgentCode(e.target.value)} placeholder="ระบุรหัสตัวแทนแนะนำ" className="w-full pl-4 pr-4 py-3 rounded-lg border border-yellow-300 focus:outline-none" />
             </div>
 
-            <button onClick={handleProceed} className="w-full bg-blue-700 hover:bg-blue-800 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:-translate-y-1 transition-all">
+             {/* ================= AGENT CARD ================= */}
+              <div className="mt-4 mb-6">
+                {agentLoading && (
+                  <p className="text-gray-500 text-sm">กำลังค้นหาตัวแทน...</p>
+                )}
+
+                {agentError && (
+                  <p className="text-red-500 text-sm">{agentError}</p>
+                )}
+
+                {agentProfile && (
+                  <div className="flex items-center gap-4 bg-green-50 border p-4 rounded-xl">
+                    <Image
+                      src={agentProfile.imgProfile || "/fotos/avatar-default.png"}
+                      alt="agent"
+                      width={64}
+                      height={64}
+                      className="rounded-full"
+                    />
+                    <div>
+                      <p className="font-bold text-green-800">
+                        {agentProfile.first_name} {agentProfile.last_name}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        เลขตัวแทน: {agentProfile.agent_license_number}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={handleProceed}
+                className="w-full bg-blue-700 hover:bg-blue-800 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:-translate-y-1 transition-all"
+              >
                 ดำเนินการต่อ
-            </button>
+              </button>
+
           </div>
         </div>
       </div>

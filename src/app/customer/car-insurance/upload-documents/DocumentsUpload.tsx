@@ -106,7 +106,8 @@ export default function UploadDocumentsPage() {
       const response = await axios.post("http://localhost:5000/purchase/insurance", payload);
 
       if (response.status === 201) {
-        alert("บันทึกข้อมูลสำเร็จ! เตรียมชำระเงิน");
+        alert("ระบบได้ทำการบันทึกข้อมูลแล้ว รอการตรวจสอบแล้วรอชำระเงินได้เลย");
+        router.push("/customer/profile");
       }
     } catch (error) {
       console.error("Upload Error:", error);
