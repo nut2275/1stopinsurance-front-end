@@ -44,7 +44,7 @@ interface InsuranceForm {
 }
 
 const LEVELS = ["ชั้น 1", "ชั้น 2+", "ชั้น 2", "ชั้น 3+", "ชั้น 3"];
-const REPAIR_TYPES = ["ซ่อมอู่", "ซ่อมห้าง"];
+const REPAIR_TYPES = ["อู่", "ห้าง", "อู่ หรือ ห้าง"];
 const INSURANCE_BRANDS = ["วิริยะประกันภัย", "ธนชาตประกันภัย", "เมืองไทยประกันภัย", "อาคเนย์", "กรุงเทพประกันภัย", "คุ้มภัยโตเกียวมารีน"];
 const CAR_BRANDS = ["Toyota", "Honda", "Mazda", "Mitsubishi", "Isuzu", "Nissan", "Ford", "MG"];
 
@@ -65,7 +65,7 @@ export default function InsuranceFormNew() {
     year: new Date().getFullYear(),
     insuranceBrand: "",
     level: "ชั้น 1",
-    repairType: "ซ่อมอู่",
+    repairType: "อู่",
     hasFireCoverage: false,
     hasFloodCoverage: false,
     hasTheftCoverage: false,
@@ -272,7 +272,7 @@ export default function InsuranceFormNew() {
                   placeholder="0"
                   required
                 />
-                <p className="text-gray-500 text-sm mt-2 text-right">* รวมภาษีและอากรแสตมป์แล้ว</p>
+                <p className="text-gray-500 text-sm mt-2 text-right">* ราคาสุทธิ</p>
               </div>
 
               {/* --- Action Buttons --- */}

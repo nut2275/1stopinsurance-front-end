@@ -98,7 +98,10 @@ export default function CarInsuranceForm() {
 const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
   e.preventDefault();
 
-  if (!year || !brand || !model || !variant) return;
+  if (!year || !brand || !model || !variant) {
+    alert("กรุณาเลือกข้อมูลรถให้ครบถ้วน");
+    return;
+  }
 
   setLoading(true);
 
@@ -109,13 +112,24 @@ const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     variant,
   };
 
-  // ✅ ส่ง level เฉพาะกรณีไม่ใช่ "ไม่ระบุ"
   if (insuranceType !== "ไม่ระบุ") {
     params.level = insuranceType;
   }
 
   try {
     const res = await api.get("/api/plans", { params });
+
+    // ✅ เก็บข้อมูลรถไว้ใช้หน้าถัดไป
+    localStorage.setItem(
+      "searchCriteria",
+      JSON.stringify({
+        year,
+        carBrand: brand,
+        model,
+        subModel: variant,
+        insuranceType
+      })
+    );
 
     localStorage.setItem(
       "recommendedPlans",
@@ -131,6 +145,7 @@ const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     setLoading(false);
   }
 };
+
   
 
   /* ===================== UI ===================== */

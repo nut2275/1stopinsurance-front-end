@@ -47,6 +47,11 @@ export default function SummaryPage() {
   const [loading, setLoading] = useState(true);
   const [agentCode, setAgentCode] = useState("");
 
+  const [agentQuery, setAgentQuery] = useState("");
+  const [agentResults, setAgentResults] = useState<AgentProfile[]>([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+
+
   const getBrandLogo = (brandName: string) => {
     if (!brandName) return "/fotos/Insur1.png";
     const name = brandName.toLowerCase();
@@ -93,38 +98,64 @@ export default function SummaryPage() {
     setLoading(false);
   }, [planId]);
 
-  useEffect(() => {
-  if (!agentCode || agentCode.length < 3) {
-    setAgentProfile(null);
-    setAgentError(null);
+//   useEffect(() => {
+//   if (!agentCode || agentCode.length < 3) {
+//     setAgentProfile(null);
+//     setAgentError(null);
+//     return;
+//   }
+
+//   const controller = new AbortController();
+
+//   const fetchAgent = async () => {
+//     try {
+//       setAgentLoading(true);
+//       setAgentError(null);
+
+//       const res = await api.get(`/agents/by-license/${agentCode}`, {
+//         signal: controller.signal, // ✅ axios รองรับ AbortController
+//       });
+
+//       setAgentProfile(res.data);
+//     } catch (err) {
+//       if (axios.isCancel(err)) return;
+
+//       setAgentProfile(null);
+//       setAgentError("ไม่พบข้อมูลตัวแทน");
+//     } finally {
+//       setAgentLoading(false);
+//     }
+//   };
+
+//   fetchAgent();
+//   return () => controller.abort();
+// }, [agentCode]);
+
+useEffect(() => {
+  if (agentQuery.length < 2) {
+    setAgentResults([]);
+    setShowDropdown(false);
     return;
   }
 
   const controller = new AbortController();
 
-  const fetchAgent = async () => {
+  const fetchAgents = async () => {
     try {
-      setAgentLoading(true);
-      setAgentError(null);
-
-      const res = await api.get(`/agents/by-license/${agentCode}`, {
-        signal: controller.signal, // ✅ axios รองรับ AbortController
+      const res = await api.get(`/agents/search?q=${agentQuery}`, {
+        signal: controller.signal,
       });
-
-      setAgentProfile(res.data);
+      setAgentResults(res.data);
+      setShowDropdown(true);
     } catch (err) {
-      if (axios.isCancel(err)) return;
-
-      setAgentProfile(null);
-      setAgentError("ไม่พบข้อมูลตัวแทน");
-    } finally {
-      setAgentLoading(false);
+      setAgentResults([]);
     }
   };
 
-  fetchAgent();
+  fetchAgents();
   return () => controller.abort();
-}, [agentCode]);
+}, [agentQuery]);
+
 
 
   const handleProceed = () => {
@@ -185,10 +216,55 @@ export default function SummaryPage() {
             </div>
 
             {/* ช่องกรอกเลขตัวแทน */}
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-5 mb-6">
-                <label className="block text-sm font-semibold text-yellow-800 mb-2">เลขที่ใบอนุญาตตัวแทน (ถ้ามี)</label>
-                <input type="text" value={agentCode} onChange={(e) => setAgentCode(e.target.value)} placeholder="ระบุรหัสตัวแทนแนะนำ" className="w-full pl-4 pr-4 py-3 rounded-lg border border-yellow-300 focus:outline-none" />
+            <div className="relative bg-yellow-50 border border-yellow-200 rounded-xl p-5 mb-6">
+              <label className="block text-sm font-semibold text-yellow-800 mb-2">
+                ค้นหาตัวแทน (ชื่อ / นามสกุล / เลขใบอนุญาต)
+              </label>
+
+              <input
+                type="text"
+                value={agentQuery}
+                onChange={(e) => setAgentQuery(e.target.value)}
+                placeholder="พิมพ์ชื่อหรือตัวเลข..."
+                className="w-full pl-4 pr-4 py-3 rounded-lg border border-yellow-300 focus:outline-none"
+              />
+
+              {showDropdown && agentResults.length > 0 && (
+                <div className="absolute z-20 mt-2 w-full bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {agentResults.map((agent) => (
+                    <div
+                      key={agent._id}
+                      onClick={() => {
+                        setAgentProfile(agent);
+                        setAgentCode(agent._id);
+                        setAgentQuery(
+                          `${agent.first_name} ${agent.last_name}`
+                        );
+                        setShowDropdown(false);
+                      }}
+                      className="flex items-center gap-3 p-3 hover:bg-gray-100 cursor-pointer"
+                    >
+                      <Image
+                        src={agent.imgProfile || "/fotos/avatar-default.png"}
+                        alt="agent"
+                        width={40}
+                        height={40}
+                        className="rounded-full"
+                      />
+                      <div>
+                        <p className="font-semibold">
+                          {agent.first_name} {agent.last_name}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          เลขตัวแทน: {agent.agent_license_number}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
+
 
              {/* ================= AGENT CARD ================= */}
               <div className="mt-4 mb-6">
