@@ -113,7 +113,7 @@ export default function ContactAgentPage() {
             className="text-blue-600 font-semibold hover:underline mb-4 inline-block"
             type="button"
           >
-            ← ย้อนกลับ
+            ← กรมธรรมของฉัน
           </button>
 
           <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100 text-center relative overflow-hidden min-h-[400px]">

@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Bell, ChevronDown, UserCircle, LogOut, Menu, X } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
-import MenuNoLogin from '@/app/root/admin/Components/Menu';
+// import MenuNoLogin from '@/app/root/admin/Components/Menu';
 
 type AdminHeaderProps = {
   activePage: string;

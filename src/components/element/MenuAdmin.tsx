@@ -13,7 +13,7 @@ const navLinks = [
   { href: '/root/admin/dashboard', label: 'แดชบอร์ด' },
   { href: '/root/admin/agents', label: 'จัดการตัวแทน' },
   { href: '/root/admin/insurances', label: 'จัดการประกัน' },
-  { href: '/root/admin/promotions', label: 'จัดการโปรโมชัน' },
+  { href: '/root/admin/car-master', label: 'จัดการข้อมูลรถยนต์' },
   { href: '/root/admin/customers', label: 'จัดการลูกค้า' },
 ];
 
