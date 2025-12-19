@@ -11,6 +11,7 @@ type AdminHeaderProps = {
 
 const navLinks = [
   { href: '/root/admin/dashboard', label: 'แดชบอร์ด' },
+  { href: '/root/admin/customerPolicy', label: 'จัดการกรมธรรม์' },
   { href: '/root/admin/agents', label: 'จัดการตัวแทน' },
   { href: '/root/admin/insurances', label: 'จัดการประกัน' },
   { href: '/root/admin/car-master', label: 'จัดการข้อมูลรถยนต์' },
