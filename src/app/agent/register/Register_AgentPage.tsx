@@ -1,99 +1,201 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, ChangeEvent, FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
+import { AxiosError } from "axios";
 import api from "@/services/api";
 import MenuLogin from "@/components/element/MenuLogin";
+
+interface RegisterFormState {
+  first_name: string;
+  last_name: string;
+  agent_license_number: string;
+  card_expiry_date: string;
+  address: string;
+  phone: string;
+  idLine: string;
+  imgProfile: string;
+  note: string;
+  birth_date: string;
+  username: string;
+  password: string;
+  passwordConfirm: string;
+  [key: string]: string;
+}
+
+interface ApiErrorResponse {
+  message: string;
+  error?: string;
+}
 
 export default function RegisterAgentPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<RegisterFormState>({
     first_name: "",
     last_name: "",
     agent_license_number: "",
     card_expiry_date: "",
     address: "",
     phone: "",
+    idLine: "",
+    imgProfile: "",
+    note: "",
     birth_date: "",
     username: "",
     password: "",
     passwordConfirm: "",
   });
 
-  const [isEdit, setIsEdit] = useState(false);
+  const [isEdit, setIsEdit] = useState<boolean>(false);
 
   useEffect(() => {
     const action = searchParams.get("action");
     if (action === "edit") {
       setIsEdit(true);
-      setForm({
-        first_name: searchParams.get("name") || "",
-        last_name: searchParams.get("last_name") || "",
-        agent_license_number: searchParams.get("agent_license_number") || "",
-        card_expiry_date: searchParams.get("card_expiry_date") || "",
-        address: searchParams.get("address") || "",
-        phone: searchParams.get("phone") || "",
-        birth_date: searchParams.get("birth_date") || "",
-        username: searchParams.get("username") || "",
-        password: searchParams.get("password") || "",
-        passwordConfirm: searchParams.get("passwordConfirm") || "",
-      });
+      const getParam = (key: string): string => searchParams.get(key) || "";
+
+      setForm((prev) => ({
+        ...prev,
+        first_name: getParam("first_name"),
+        last_name: getParam("last_name"),
+        agent_license_number: getParam("agent_license_number"),
+        card_expiry_date: getParam("card_expiry_date")?.split("T")[0] || "",
+        address: getParam("address"),
+        phone: getParam("phone"),
+        idLine: getParam("idLine"),
+        imgProfile: getParam("imgProfile"),
+        note: getParam("note"),
+        birth_date: getParam("birth_date")?.split("T")[0] || "",
+        username: getParam("username"),
+        password: "",
+        passwordConfirm: "",
+      }));
     }
   }, [searchParams]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    // setForm({ ...form, [e.target.id]: e.target.value });
+  const handleChange = (
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
     const { id, value } = e.target;
     if (id === "phone") {
-      // เอาเฉพาะตัวเลข 0-9
       const numericValue = value.replace(/\D/g, "");
-      setForm({ ...form, [id]: numericValue });
+      setForm((prev) => ({ ...prev, [id]: numericValue }));
     } else {
-      setForm({ ...form, [id]: value });
+      setForm((prev) => ({ ...prev, [id]: value }));
     }
   };
 
-  const handleSubmit = async(e: React.FormEvent) => {
+  // ✅ ฟังก์ชันใหม่สำหรับจัดการไฟล์รูปภาพ
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // เช็คขนาดไฟล์ (เช่น ไม่เกิน 2MB) เพื่อไม่ให้ Backend พัง
+      if (file.size > 5 * 1024 * 1024) { 
+        alert("ขนาดไฟล์รูปภาพต้องไม่เกิน 5MB"); // แจ้งเตือนลูกค้าตามจริง
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        // แปลงเป็น Base64 string เพื่อส่งไปเก็บใน DB
+        const base64String = reader.result as string;
+        setForm((prev) => ({ ...prev, imgProfile: base64String }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if(form.password !== form.passwordConfirm) return alert("ยืนยันรหัสผ่านไม่ตรงกับ รหัสผ่าน")
+    if (form.password !== form.passwordConfirm) {
+      return alert("รหัสผ่าน และ ยืนยันรหัสผ่าน ไม่ตรงกัน");
+    }
 
     try {
-      await api.post('/agents/register', form)
-      alert("บันทึกข้อมูลสำเร็จ!");
-      router.push("/agent/login");
-    }catch (err){
-      console.log(err);
-      alert('การสมัครสมาชิกไม่สำเร็จ')
+      if (isEdit) {
+        alert("ระบบแก้ไขยังไม่เปิดใช้งานในตัวอย่างนี้");
+      } else {
+        await api.post("/agents/register", form);
+        alert("บันทึกข้อมูลสำเร็จ!");
+        router.push("/agent/login");
+      }
+    } catch (error) {
+      const err = error as AxiosError<ApiErrorResponse>;
+      console.error(err);
+
+      const errorMessage =
+        err.response?.data?.message ||
+        "การสมัครสมาชิกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+
+      alert(errorMessage);
     }
-    
   };
 
   return (
     <div className="flex flex-col min-h-screen bg-[#f0f6ff] text-gray-800 font-sans">
-      {/* Navbar */}
       <MenuLogin />
 
-      {/* Main */}
       <main className="max-w-4xl w-full mx-auto bg-white shadow rounded-xl mt-10 px-8 sm:px-15 py-8">
         <h1 className="text-center text-2xl font-bold text-blue-900 mb-6">
           {isEdit ? "แก้ไขข้อมูลตัวแทน" : "สมัครสมาชิกนายหน้า"}
         </h1>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Name */}
+          
+          {/* ✅ ส่วนอัปโหลดรูปภาพ (ย้ายมาบนสุด) */}
+          <div className="flex flex-col items-center justify-center mb-6">
+            <div className="relative w-32 h-32 mb-4">
+              {form.imgProfile ? (
+                // แสดงรูปตัวอย่าง
+                <img
+                  src={form.imgProfile}
+                  alt="Profile Preview"
+                  className="w-full h-full object-cover rounded-full border-4 border-blue-100 shadow-sm"
+                />
+              ) : (
+                // แสดง Placeholder เมื่อยังไม่มีรูป
+                <div className="w-full h-full rounded-full bg-gray-200 flex items-center justify-center border-4 border-gray-100 text-gray-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                  </svg>
+                </div>
+              )}
+              
+              {/* ปุ่มเลือกรูปซ้อนทับ */}
+              <label 
+                htmlFor="imgProfileInput" 
+                className="absolute bottom-0 right-0 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full cursor-pointer shadow-md transition-colors"
+                title="อัปโหลดรูปโปรไฟล์"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
+                </svg>
+              </label>
+              <input
+                id="imgProfileInput"
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="hidden" // ซ่อน input ไว้
+              />
+            </div>
+            <p className="text-sm text-gray-500">รูปโปรไฟล์ (ไม่เกิน 5MB)</p>
+          </div>
+
+          {/* --- กลุ่มข้อมูลส่วนตัว --- */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label htmlFor="first_name" className="block font-medium mb-1">
-                ชื่อ
+                ชื่อ <span className="text-red-500">*</span>
               </label>
               <input
                 id="first_name"
                 type="text"
-                placeholder="ชื่อ"
+                placeholder="ชื่อจริง"
                 value={form.first_name}
                 onChange={handleChange}
                 className="w-full border border-gray-300 rounded-md p-2"
@@ -102,7 +204,7 @@ export default function RegisterAgentPage() {
             </div>
             <div>
               <label htmlFor="last_name" className="block font-medium mb-1">
-                นามสกุล
+                นามสกุล <span className="text-red-500">*</span>
               </label>
               <input
                 id="last_name"
@@ -116,78 +218,12 @@ export default function RegisterAgentPage() {
             </div>
           </div>
 
-          {/* License */}
-          <div>
-            <label htmlFor="agent_license_number" className="block font-medium mb-1">
-              เลขที่ใบอนุญาตนายหน้าประกันภัย
-            </label>
-            <input
-              id="agent_license_number"
-              type="text"
-              placeholder="เลขที่ใบอนุญาตนายหน้าประกันภัย"
-              value={form.agent_license_number}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md p-2"
-              required
-            />
-          </div>
-
-          {/* Card expiry */}
-          <div>
-            <label htmlFor="card_expiry_date" className="block font-medium mb-1">
-              วันหมดอายุบัตร
-            </label>
-            <input
-              placeholder="วันหมดอายุบัตร"
-              id="card_expiry_date"
-              type="date"
-              required
-              value={form.card_expiry_date}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md p-2"
-            />
-          </div>
-
-          {/* Address */}
-          <div>
-            <label htmlFor="address" className="block font-medium mb-1">
-              ที่อยู่
-            </label>
-            <textarea
-              placeholder="ที่อยู่"
-              id="address"
-              rows={2}
-              value={form.address}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md p-2"
-              required
-            />
-          </div>
-
-          {/* Phone & Birth Date */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="phone" className="block font-medium mb-1">
-                เบอร์โทร
-              </label>
-              <input
-                id="phone"
-                type="tel"              // ใช้ tel ดีกว่าถ้าเป็นเบอร์โทร
-                inputMode="numeric"     // บนมือถือจะโชว์ numeric keyboard
-                pattern="[0-9]*"        // รับเฉพาะตัวเลข
-                placeholder="เบอร์โทร"
-                value={form.phone}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md p-2"
-                required
-              />
-            </div>
-            <div>
               <label htmlFor="birth_date" className="block font-medium mb-1">
-                วันเกิด
+                วันเกิด <span className="text-red-500">*</span>
               </label>
               <input
-                placeholder="วันเกิด"
                 id="birth_date"
                 type="date"
                 value={form.birth_date}
@@ -196,33 +232,18 @@ export default function RegisterAgentPage() {
                 required
               />
             </div>
-          </div>
-
-          {/* Username & Password */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="username" className="block font-medium mb-1">
-                Username
+              <label
+                htmlFor="agent_license_number"
+                className="block font-medium mb-1"
+              >
+                เลขที่ใบอนุญาต <span className="text-red-500">*</span>
               </label>
               <input
-                placeholder="username"
-                id="username"
+                id="agent_license_number"
                 type="text"
-                value={form.username}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md p-2"
-                required
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="block font-medium mb-1">
-                รหัสผ่าน
-              </label>
-              <input
-                placeholder="รหัสผ่าน"
-                id="password"
-                type="password"
-                value={form.password}
+                placeholder="เลขที่ใบอนุญาตนายหน้า"
+                value={form.agent_license_number}
                 onChange={handleChange}
                 className="w-full border border-gray-300 rounded-md p-2"
                 required
@@ -231,186 +252,163 @@ export default function RegisterAgentPage() {
           </div>
 
           <div>
-            <label htmlFor="passwordConfirm" className="block font-medium mb-1">
-              ยืนยัน รหัสผ่าน
+            <label
+              htmlFor="card_expiry_date"
+              className="block font-medium mb-1"
+            >
+              วันหมดอายุบัตรนายหน้า <span className="text-red-500">*</span>
             </label>
             <input
-              placeholder="ยืนยัน รหัสผ่าน"
-              id="passwordConfirm"
-              type="password"
-              value={form.passwordConfirm}
+              id="card_expiry_date"
+              type="date"
+              value={form.card_expiry_date}
               onChange={handleChange}
               className="w-full border border-gray-300 rounded-md p-2"
               required
             />
           </div>
 
+          {/* --- กลุ่มข้อมูลติดต่อ --- */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="phone" className="block font-medium mb-1">
+                เบอร์โทรศัพท์ <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="phone"
+                type="tel"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                placeholder="08XXXXXXXX"
+                value={form.phone}
+                onChange={handleChange}
+                className="w-full border border-gray-300 rounded-md p-2"
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="idLine" className="block font-medium mb-1">
+                LINE ID
+              </label>
+              <input
+                id="idLine"
+                type="text"
+                placeholder="ไอดีไลน์ (ถ้ามี)"
+                value={form.idLine}
+                onChange={handleChange}
+                className="w-full border border-gray-300 rounded-md p-2"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="address" className="block font-medium mb-1">
+              ที่อยู่ <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              id="address"
+              rows={3}
+              placeholder="ที่อยู่ปัจจุบัน"
+              value={form.address}
+              onChange={handleChange}
+              className="w-full border border-gray-300 rounded-md p-2"
+              required
+            />
+          </div>
+
+          {/* --- ข้อมูลเพิ่มเติม (Optional) --- */}
+          {/* ลบ imgProfile แบบ text ออกแล้ว เหลือแค่ Note */}
+          <div>
+              <label htmlFor="note" className="block font-medium mb-1">
+                หมายเหตุ
+              </label>
+              <input
+                id="note"
+                type="text"
+                placeholder="บันทึกเพิ่มเติม..."
+                value={form.note}
+                onChange={handleChange}
+                className="w-full border border-gray-300 rounded-md p-2"
+              />
+          </div>
+
+          {/* --- กลุ่มบัญชีผู้ใช้ --- */}
+          <div className="border-t pt-4 mt-4">
+            <h3 className="text-lg font-semibold text-gray-700 mb-3">
+              ข้อมูลสำหรับเข้าสู่ระบบ
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="username" className="block font-medium mb-1">
+                  Username <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="username"
+                  type="text"
+                  placeholder="ตั้งชื่อผู้ใช้"
+                  value={form.username}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded-md p-2"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div>
+                <label htmlFor="password" className="block font-medium mb-1">
+                  รหัสผ่าน <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  placeholder="รหัสผ่าน"
+                  value={form.password}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded-md p-2"
+                  required
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="passwordConfirm"
+                  className="block font-medium mb-1"
+                >
+                  ยืนยันรหัสผ่าน <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="passwordConfirm"
+                  type="password"
+                  placeholder="ยืนยันรหัสผ่านอีกครั้ง"
+                  value={form.passwordConfirm}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded-md p-2"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
           <button
             type="submit"
-            className="bg-blue-700 w-full mt-4 text-white px-4 py-2 rounded hover:bg-blue-800"
-            onSubmit={handleSubmit}
+            className="bg-blue-700 w-full mt-6 text-white px-4 py-3 rounded-lg font-bold hover:bg-blue-800 transition shadow-md"
           >
-            สมัครสมาชิก
+            {isEdit ? "บันทึกการแก้ไข" : "สมัครสมาชิก"}
           </button>
 
-          <p className="mt-2 text-sm text-gray-600 text-center">
+          <p className="mt-4 text-sm text-gray-600 text-center">
             มีบัญชีอยู่แล้ว?{" "}
-            <Link href="/agent/login" className="text-blue-600 font-semibold hover:underline">
+            <Link
+              href="/agent/login"
+              className="text-blue-600 font-semibold hover:underline"
+            >
               เข้าสู่ระบบ
             </Link>
           </p>
         </form>
       </main>
 
-      {/* Footer */}
-      <div className="mt-20 w-full">
-      </div>
+      <div className="mt-20 w-full"></div>
     </div>
   );
 }
-
-
-
-// "use client";
-
-
-
-// import { useEffect, useState } from "react";
-// import api from "@/services/api";
-// import { useRouter, useSearchParams } from "next/navigation";
-// import Image from "next/image";
-// import Footer from "@/components/element/Footer";
-
-// export default function RegisterAgentPage() {
-//   const router = useRouter();
-//   const searchParams = useSearchParams();
-
-//   const [form, setForm] = useState({
-//     first_name: "",
-//     last_name: "",
-//     agent_license_number: "",
-//     card_expiry_date: "",
-//     address: "",
-//     phone: "",
-//     birth_date: "",
-//     username: "",
-//     password: "",
-//     passwordConfirm: "",
-//     imgProfile: "",
-//     idLine: "",
-//     note: "",
-//   });
-
-//   const [isEdit, setIsEdit] = useState(false);
-
-//   useEffect(() => {
-//     const action = searchParams.get("action");
-//     if (action === "edit") {
-//       setIsEdit(true);
-//       setForm({
-//         first_name: searchParams.get("first_name") || "",
-//         last_name: searchParams.get("last_name") || "",
-//         agent_license_number: searchParams.get("agent_license_number") || "",
-//         card_expiry_date: searchParams.get("card_expiry_date") || "",
-//         address: searchParams.get("address") || "",
-//         phone: searchParams.get("phone") || "",
-//         birth_date: searchParams.get("birth_date") || "",
-//         username: searchParams.get("username") || "",
-//         password: searchParams.get("password") || "",
-//         passwordConfirm: searchParams.get("passwordConfirm") || "",
-//         imgProfile: searchParams.get("imgProfile") || "",
-//         idLine: searchParams.get("idLine") || "",
-//         note: searchParams.get("note") || "",
-//       });
-//     }
-//   }, [searchParams]);
-
-//   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-//     setForm({ ...form, [e.target.id]: e.target.value });
-//   };
-
-//   const handleSubmit = async (e: React.FormEvent) => {
-//     e.preventDefault();
-//     if (form.password !== form.passwordConfirm) {
-//       alert("รหัสผ่านไม่ตรงกัน");
-//       return;
-//     }
-
-//     try {
-//       const payload = {
-//         first_name: form.first_name,
-//         last_name: form.last_name,
-//         agent_license_number: form.agent_license_number,
-//         card_expiry_date: form.card_expiry_date,
-//         address: form.address,
-//         phone: form.phone,
-//         birth_date: form.birth_date,
-//         username: form.username,
-//         password: form.password,
-//         imgProfile: form.imgProfile,
-//         idLine: form.idLine,
-//         note: form.note,
-//       };
-
-//       const res = await api.post("/agents/create", payload);
-//       if (res.status === 201) {
-//         alert("สร้างบัญชีตัวแทนสำเร็จ!");
-//         router.push("/login");
-//       }
-//     } catch (err: unknown) {
-//       if (err instanceof Error) alert(err.message);
-//       else alert("สร้างบัญชีล้มเหลว");
-//     }
-//   };
-
-//   return (
-//     <div className="flex flex-col min-h-screen bg-[#f0f6ff] text-gray-800 font-sans">
-//       {/* Navbar */}
-//       <header className="bg-white shadow flex justify-between items-center px-4 sm:px-10 py-4 sticky top-0 z-20">
-//         <a href="/manage-agent" className="flex items-center space-x-2">
-//           <Image src="/fotos/Logo.png" alt="Logo" width={40} height={40} />
-//           <span className="text-xl font-bold text-[#1d4ed8]">1StopInsurance</span>
-//         </a>
-//         <div className="border border-[#1d4ed8] px-4 py-1 rounded-full text-[#1d4ed8] font-semibold">Admin</div>
-//       </header>
-
-//       <main className="max-w-4xl w-full mx-auto bg-white shadow rounded-xl mt-10 px-4 sm:px-10 py-8">
-//         <h1 className="text-center text-2xl font-bold text-blue-900 mb-6">
-//           {isEdit ? "แก้ไขข้อมูลตัวแทน" : "สมัครสมาชิกนายหน้า"}
-//         </h1>
-
-//         <form onSubmit={handleSubmit} className="space-y-4">
-//           {/* First & Last Name */}
-//           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-//             <input id="first_name" placeholder="ชื่อ" value={form.first_name} onChange={handleChange} className="w-full border border-gray-300 rounded-md p-2" required />
-//             <input id="last_name" placeholder="นามสกุล" value={form.last_name} onChange={handleChange} className="w-full border border-gray-300 rounded-md p-2" required />
-//           </div>
-
-//           <input id="agent_license_number" placeholder="เลขที่ใบอนุญาต" value={form.agent_license_number} onChange={handleChange} className="w-full border border-gray-300 rounded-md p-2" required />
-//           <input id="card_expiry_date" type="date" placeholder="วันหมดอายุบัตร" value={form.card_expiry_date} onChange={handleChange} className="w-full border border-gray-300 rounded-md p-2" required />
-//           <textarea id="address" placeholder="ที่อยู่" value={form.address} onChange={handleChange} className="w-full border border-gray-300 rounded-md p-2" required />
-
-//           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-//             <input id="phone" placeholder="เบอร์โทร" value={form.phone} onChange={handleChange} className="w-full border border-gray-300 rounded-md p-2" required />
-//             <input id="birth_date" type="date" placeholder="วันเกิด" value={form.birth_date} onChange={handleChange} className="w-full border border-gray-300 rounded-md p-2" required />
-//           </div>
-
-//           <input id="username" placeholder="Username" value={form.username} onChange={handleChange} className="w-full border border-gray-300 rounded-md p-2" required />
-//           <input id="password" type="password" placeholder="Password" value={form.password} onChange={handleChange} className="w-full border border-gray-300 rounded-md p-2" required />
-//           <input id="passwordConfirm" type="password" placeholder="Confirm Password" value={form.passwordConfirm} onChange={handleChange} className="w-full border border-gray-300 rounded-md p-2" required />
-          
-//           {/* Optional */}
-//           <input id="imgProfile" placeholder="URL Profile" value={form.imgProfile} onChange={handleChange} className="w-full border border-gray-300 rounded-md p-2" />
-//           <input id="idLine" placeholder="LINE QR URL" value={form.idLine} onChange={handleChange} className="w-full border border-gray-300 rounded-md p-2" />
-//           <textarea id="note" placeholder="หมายเหตุ" value={form.note} onChange={handleChange} className="w-full border border-gray-300 rounded-md p-2" />
-
-//           <button type="submit" className="bg-blue-700 w-full mt-4 text-white px-4 py-2 rounded hover:bg-blue-800">
-//             สมัครสมาชิก
-//           </button>
-//         </form>
-//       </main>
-
-//       <Footer />
-//     </div>
-//   );
-// }

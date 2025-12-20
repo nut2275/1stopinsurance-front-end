@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, FormEvent, ChangeEvent, useEffect } from 'react';
+import React, { useState, FormEvent, ChangeEvent, useEffect, use } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { Person, Email, Phone, Home, Cake, CloudUpload, CheckCircle } from '@mui/icons-material';
@@ -8,6 +8,7 @@ import api from '@/services/api'; // ✅ เรียกใช้ api ที่�
 import axios from 'axios'; // เอาไว้เช็ค Error type
 import { mutate } from "swr"; // ✅ เพิ่มบรรทัดนี้
 import { Customer } from '@/types/dataType';
+import { jwtDecode } from "jwt-decode";
 
 export default function EditProfileForm() {
   const router = useRouter();
@@ -31,28 +32,43 @@ export default function EditProfileForm() {
   const [profilePreview, setProfilePreview] = useState<string>("/fotos/noPrafile.jpg");
   const [showModal, setShowModal] = useState<boolean>(false);
 
-  // 2. useEffect: ดึงข้อมูลจาก URL
   useEffect(() => {
-    if (searchParams.get('first_name')) {
-      const birthDateStr = searchParams.get('birth_date');
-      const imgProfile = searchParams.get('imgProfile_customer');
+    const fetchUserData = async () => {
+      // 1. หา ID จาก URL
+      const targetId = searchParams.get('_id');
+      
+      if (!targetId) return; // ถ้าไม่มี ID ไม่ต้องทำอะไร
 
-      setFormData({
-        _id: searchParams.get('id') || "", // ✅ แก้เป็น 'id' ให้ตรงกับที่ส่งมา
-        first_name: searchParams.get('first_name') || "",
-        last_name: searchParams.get('last_name') || "",
-        email: searchParams.get('email') || "",
-        phone: searchParams.get('phone') || "",
-        address: searchParams.get('address') || "",
-        birth_date: birthDateStr ? new Date(birthDateStr) : new Date(),
-        username: "",
-        password: "",
-        imgProfile_customer: imgProfile || "/fotos/noPrafile.jpg"
-      });
+      try {
+        // 2. ยิง API ไปขอข้อมูล
+        const response = await api.get(`/customers/${targetId}`);
+        const apiData = response.data; // ข้อมูลที่ได้จาก Backend
 
-      setProfilePreview(imgProfile || "/fotos/noPrafile.jpg");
-    }
+        // 3. เอาข้อมูลยัดใส่ State (เชื่อมตามชื่อตัวแปร)
+        setFormData(prev => ({
+          ...prev,          // คงค่าเดิมไว้ก่อน (เผื่อบาง field ไม่มี)
+          ...apiData,       // ✅ ทับด้วยค่าจาก API (เพราะชื่อตรงกัน!)
+          
+          // ⚠️ ข้อควรระวัง: ข้อมูลวันที่จาก API มักเป็น String ต้องแปลงเป็น Date Object
+          birth_date: apiData.birth_date ? new Date(apiData.birth_date) : new Date(),
+          
+          // ไม่เอา password มาโชว์
+          password: "" 
+        }));
+
+        // 4. อัปเดตรูปโปรไฟล์ตัวอย่าง
+        if (apiData.imgProfile_customer) {
+          setProfilePreview(apiData.imgProfile_customer);
+        }
+
+      } catch (error) {
+        console.error("โหลดข้อมูลไม่สำเร็จ:", error);
+      }
+    };
+
+    fetchUserData();
   }, [searchParams]);
+
 
   // Helper Date
   const formatDateForInput = (date: Date) => {

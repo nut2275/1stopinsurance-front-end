@@ -64,9 +64,9 @@ export default function MenuAgent({ activePage }: AdminHeaderProps) {
                             (e.target as HTMLImageElement).src = "https://placehold.co/48x48/1d4ed8/FFFFFF?text=1S";
                         }}
                     />
-                    <span className="text-lg sm:text-xl font-bold text-blue-800 sm:block">
+                    <Link href={'/'} className="text-lg sm:text-xl font-bold text-blue-800 sm:block">
                     1StopInsurance
-                    </span>
+                    </Link>
                 </Link>
             </div>
         </div>
@@ -124,8 +124,8 @@ export default function MenuAgent({ activePage }: AdminHeaderProps) {
                 {isMenuOpen && (
                 <div className="cursor-pointer absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl py-2 animate-fade-in-down">
                     <div className="px-4 py-2 border-b">
-                    <p className="text-sm font-semibold text-slate-800">Admin User</p>
-                    <p className="text-xs text-slate-500">Administrator</p>
+                    <Link href={"profile"} className="text-sm font-semibold text-slate-800">Profile</Link>
+                    <p className="text-xs text-slate-500">Agent</p>
                     </div>
                     <div
                     onClick={logout}

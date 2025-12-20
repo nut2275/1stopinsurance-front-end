@@ -30,14 +30,6 @@ function ProfileCard({ user }: { user: Customer | null }) {
     pathname: "/customer/profile/edit-profile",
     query: {
       _id: user._id,
-      first_name: user.first_name,
-      last_name: user.last_name,
-      email: user.email,
-      phone: user.phone,
-      address: user.address,
-      // แปลงวันที่เป็น string มาตรฐาน (ISO) เพื่อให้ฝั่งรับเอาไปใช้ง่ายๆ
-      birth_date: user.birth_date ? new Date(user.birth_date).toISOString() : "",
-      imgProfile_customer: user.imgProfile_customer
     }
   } : "#"; // ถ้าไม่มี user ให้ลิงก์ไปที่ #
 
@@ -52,7 +44,8 @@ function ProfileCard({ user }: { user: Customer | null }) {
           alt="Profile Image"
           width={160}
           height={160}
-          className="object-cover rounded-full border-6 border-blue-500/50 shadow-xl transition duration-300 hover:border-blue-500"
+          // เพิ่ม aspect-square ที่นี่ครับ
+          className="aspect-square object-cover rounded-full border-6 border-blue-500/50 shadow-xl transition duration-300 hover:border-blue-500"
           priority
         />
         {user && (

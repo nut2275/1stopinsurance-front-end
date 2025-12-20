@@ -25,7 +25,7 @@ const Login_AgentPage = () => {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) {
-      router.push("/customer/profile");
+      router.push("/agent/agent_dashboard");
     }
   }, []);
 
