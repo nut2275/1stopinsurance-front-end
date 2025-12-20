@@ -40,8 +40,10 @@ export default function PurchaseDocumentPage() {
     );
   }
 
-  // ================= เอกสารทั้งหมด (แสดงครบ แม้ไม่มีไฟล์) =================
-  const documents: DocConfig[] = [
+  // ================= จัดการเอกสารตามเงื่อนไข =================
+  
+  // 1. เอกสารพื้นฐาน (มีทุกกรณี)
+  const baseDocuments: DocConfig[] = [
     {
       label: "สำเนาบัตรประชาชน",
       key: "citizenCardImage",
@@ -60,14 +62,45 @@ export default function PurchaseDocumentPage() {
       file: data?.policyDocumentImage,
       downloadName: "กรมธรรม์",
     },
-    {
-      label: "ใบเสร็จการโอนเงิน",
-      key: "paymentSlipImage",
-      file: data?.paymentSlipImage,
-      downloadName: "ใบเสร็จการโอนเงิน",
-    },
   ];
 
+  // 2. เอกสารการเงิน (แยกตาม paymentMethod)
+  let financialDocuments: DocConfig[] = [];
+
+  if (data?.paymentMethod === 'installment') {
+    // ✅ กรณีผ่อนชำระ: แสดงเอกสารผ่อน + หนังสือยินยอม(ถ้ามี)
+    financialDocuments.push({
+        label: "เอกสารการผ่อนชำระ",
+        key: "installmentDocImage",
+        file: data?.installmentDocImage,
+        downloadName: "เอกสารการผ่อนชำระ",
+    });
+
+    // เช็คว่ามีหนังสือยินยอมไหม ถ้ามีถึงจะแสดง
+    if (data?.consentFormImage) {
+        financialDocuments.push({
+            label: "หนังสือยินยอม",
+            key: "consentFormImage",
+            file: data?.consentFormImage,
+            downloadName: "หนังสือยินยอม",
+        });
+    }
+
+  } else {
+    // ✅ กรณีจ่ายเต็ม (หรืออื่นๆ): แสดงหลักฐานการโอนเงิน
+    financialDocuments.push({
+        label: "หลักฐานการโอนเงิน",
+        key: "paymentSlipImage",
+        file: data?.paymentSlipImage,
+        downloadName: "หลักฐานการโอนเงิน",
+    });
+  }
+
+  // รวมเอกสารทั้งหมด
+  const documents = [...baseDocuments, ...financialDocuments];
+
+
+  // ================= ฟังก์ชัน Helper =================
   const isPdf = (url?: string) =>
     url?.toLowerCase().includes(".pdf");
 
@@ -92,7 +125,9 @@ export default function PurchaseDocumentPage() {
         </button>
 
         <h1 className="text-2xl font-bold mb-6">
-          เอกสารประกอบการซื้อประกัน
+          เอกสารประกอบการซื้อประกัน 
+          {/* (Optional) แสดงประเภทการชำระเงินให้รู้ด้วยก็ได้ */}
+          {data?.paymentMethod === 'installment' && <span className="text-sm ml-3 bg-orange-100 text-orange-700 px-2 py-1 rounded-full">แบบผ่อนชำระ</span>}
         </h1>
 
         <div className="grid md:grid-cols-2 gap-6">
@@ -114,10 +149,11 @@ export default function PurchaseDocumentPage() {
                     <img
                       src={doc.file}
                       className="w-full h-full object-cover"
+                      alt={doc.label}
                     />
                   )
                 ) : (
-                  <p className="text-gray-500">ไม่มีเอกสาร</p>
+                  <p className="text-gray-500 text-sm">ยังไม่มีเอกสาร</p>
                 )}
               </div>
 
@@ -169,6 +205,7 @@ export default function PurchaseDocumentPage() {
               <img
                 src={previewFile}
                 className="w-full h-full object-contain"
+                alt="Preview"
               />
             )}
 

@@ -42,6 +42,7 @@ export const GlobalStyles = () => (
       font-weight: 500;
       transition: all 0.2s ease;
       padding: 8px 12px;
+      cursor: pointer; /* เพิ่ม cursor pointer ให้ */
     }
 
     .btn-dark {
@@ -58,6 +59,15 @@ export const GlobalStyles = () => (
     }
     .btn-green:hover {
       background-color: #15803d;
+    }
+
+    /* --- ส่วนที่เพิ่มใหม่สำหรับปุ่มชำระเงิน --- */
+    .btn-orange {
+      background-color: #ea580c; /* สีส้มแบบ Tailwind orange-600 */
+      color: white;
+    }
+    .btn-orange:hover {
+      background-color: #c2410c; /* สีส้มเข้มตอนเอาเมาส์ชี้ orange-700 */
     }
   `}</style>
 );

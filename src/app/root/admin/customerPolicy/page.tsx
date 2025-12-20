@@ -1,12 +1,12 @@
 import React from 'react'
-import CustomerPolocy from './CustomerPolocy'
+import CustomerPolicy from './CustomerPolicy'
 import MenuAdmin from '@/components/element/MenuAdmin'
 
 function page() {
   return (
     <div>
       <MenuAdmin activePage='/root/admin/dashboard'/>
-      <CustomerPolocy />
+      <CustomerPolicy />
     </div>
   )
 }
