@@ -129,7 +129,7 @@ export default function InsuranceCard({
         <button
           className={`flex-1 py-2 rounded-md text-white transition text-sm font-medium ${
             isPendingPayment
-              ? "bg-blue-600 hover:bg-blue-700" // ✅ ปุ่มสีฟ้า
+              ? "bg-blue-600 hover:bg-blue-700"
               : isRejected
               ? "bg-red-600 hover:bg-red-700"
               : "bg-green-600 hover:bg-green-700"
