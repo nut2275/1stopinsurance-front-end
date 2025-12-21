@@ -53,7 +53,7 @@ export default function MenuAgent({ activePage }: AdminHeaderProps) {
 
             {/* Logo */}
             <div className="flex items-center gap-3">
-                <Link href="/admin/dashboard" className="flex items-center gap-2">
+                <Link href="/" className="flex items-center gap-2">
                     <Image
                         src="/fotos/Logo.png"
                         alt="logo"
@@ -64,9 +64,9 @@ export default function MenuAgent({ activePage }: AdminHeaderProps) {
                             (e.target as HTMLImageElement).src = "https://placehold.co/48x48/1d4ed8/FFFFFF?text=1S";
                         }}
                     />
-                    <Link href={'/'} className="text-lg sm:text-xl font-bold text-blue-800 sm:block">
+                    <p  className="text-lg sm:text-xl font-bold text-blue-800 sm:block">
                     1StopInsurance
-                    </Link>
+                    </p>
                 </Link>
             </div>
         </div>

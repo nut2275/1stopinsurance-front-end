@@ -44,6 +44,10 @@ const Login_AgentPage = () => {
         const { token } = res.data;
         localStorage.setItem("token", token);
         const decoded = jwtDecode<DecodedToken>(token);
+        // console.log(decoded.id);
+        // console.log(decoded.role);
+        // console.log(decoded.username);
+        
         router.push("/agent/agent_dashboard");
       }
       
