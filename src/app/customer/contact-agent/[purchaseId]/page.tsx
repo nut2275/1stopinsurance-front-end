@@ -78,19 +78,23 @@ export default function ContactAgentPage() {
   }, [purchaseId]);
 
   // Helper Functions
-// Helper Functions
   const getProfileImageSrc = (imgProfile?: string): string => {
     // 1. ถ้าไม่มีข้อมูล หรือ เป็นค่าว่าง ("") ให้ใช้รูป Default
     if (!imgProfile || imgProfile.trim() === "") {
-        return "/fotos/profile.PNG"; // รูป Default ที่คุณเตรียมไว้ใน public
+        return "/fotos/profile.PNG"; 
     }
 
     // 2. ถ้าเป็น Link จากภายนอก (เช่น https://...) ให้ใช้เลย
     if (imgProfile.startsWith('http')) {
         return imgProfile;
     }
+
+    // ✅ เพิ่มส่วนนี้: ถ้าเป็น Base64 (data:image/...) ให้ใช้เลย ไม่ต้องต่อ localhost
+    if (imgProfile.startsWith('data:')) {
+        return imgProfile;
+    }
     
-    // 3. ถ้าเป็นชื่อไฟล์จาก Backend ให้ต่อ Path ของ Server (Port 5000)
+    // 3. ถ้าเป็นชื่อไฟล์จาก Backend ให้ต่อ Path ของ Server
     return `http://localhost:5000/uploads/${imgProfile}`;
   };
 

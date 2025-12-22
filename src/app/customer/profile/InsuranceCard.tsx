@@ -135,7 +135,7 @@ export default function InsuranceCard({
               : "bg-green-600 hover:bg-green-700"
           }`}
           onClick={() =>
-            router.push(`/customer/contact-agent?purchaseId=${policy.id}`)
+            router.push(`/customer/contact-agent/${policy.id}`)
           }
         >
           <i className="fa-solid fa-phone-volume mr-2"></i>
