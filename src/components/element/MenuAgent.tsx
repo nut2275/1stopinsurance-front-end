@@ -11,6 +11,7 @@ type AdminHeaderProps = {
 
 const navLinks = [
   { href: '/agent/agent_dashboard', label: 'แดชบอร์ด' },
+  { href: '/agent/agentCustomerPolicy', label: 'จัดการกรมธรรม์ลูกค้า' },
   { href: '/agent/agent_manage_customer', label: 'จัดการลูกค้า' },
 ];
 
