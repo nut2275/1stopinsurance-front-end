@@ -4,6 +4,22 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Bell, ChevronDown, UserCircle, LogOut, Menu, X } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter, usePathname } from 'next/navigation'; // ✅ 1. Import Router
+import { jwtDecode } from "jwt-decode"; // ✅ 2. Import jwt-decode
+import api from '@/services/api'; // ✅ 3. Import API
+
+// Type สำหรับ Token
+interface DecodedToken {
+  id: string;
+  role: string;
+  exp: number;
+}
+
+// Type อย่างง่ายสำหรับ Agent (เอาแค่ field ที่ใช้)
+interface AgentData {
+  first_name: string;
+  verification_status: string;
+}
 
 type AdminHeaderProps = {
   activePage: string;
@@ -20,12 +36,62 @@ export default function MenuAgent({ activePage }: AdminHeaderProps) {
   const [isNavOpen, setIsNavOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  // Hooks
+  const router = useRouter();
+  const pathname = usePathname();
+  
+  // State สำหรับแสดงชื่อจริง (Optional)
+  const [displayName, setDisplayName] = useState("Agent");
+
   const logout = () => {
     localStorage.removeItem("token");
     setIsMenuOpen(false); 
     window.location.assign("/agent/login");
   };
 
+  // ✅ 4. Logic ตรวจสอบสถานะ
+  useEffect(() => {
+    const checkAgentStatus = async () => {
+      try {
+        const token = localStorage.getItem("token");
+
+        // ถ้าไม่มี Token ก็ปล่อยไป (หรือจะ Redirect ไป Login ก็ได้แล้วแต่ Logic หลัก)
+        if (!token) return;
+
+        // Decode Token
+        const decoded = jwtDecode<DecodedToken>(token);
+        
+        if (decoded && decoded.id) {
+          // ดึงข้อมูล Agent ล่าสุดจาก Server
+          const response = await api.get<AgentData>(`/agents/${decoded.id}`);
+          const agent = response.data;
+
+          // (Optional) อัปเดตชื่อใน UI
+          if (agent.first_name) {
+            setDisplayName(agent.first_name);
+          }
+
+          // *** Main Logic: เช็ค status ***
+          if (agent.verification_status === 'in_review' || agent.verification_status === 'rejected') {
+            // ถ้าสถานะรอตรวจสอบ และไม่ได้อยู่หน้า status ให้ดีดไปทันที
+            if (pathname !== '/agent/status') {
+              router.replace('/agent/status');
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Failed to check agent status:", error);
+        // กรณี Token หมดอายุหรือ Error อาจจะสั่ง Logout ได้
+        // logout();
+      }
+    };
+
+    checkAgentStatus();
+  }, [router, pathname]); // รันใหม่ทุกครั้งที่เปลี่ยนหน้า เพื่อกันคนแอบเข้า URL ตรงๆ
+  // ✅ 4. Logic ตรวจสอบสถานะ
+
+
+  // Click Outside logic
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -89,9 +155,6 @@ export default function MenuAgent({ activePage }: AdminHeaderProps) {
               </Link>
             ))}
           </div>
-        {/* <nav className="hidden sm:flex justify-center items-center bg-[#f0f6ff]">
-
-        </nav> */}
 
         <div className=" flex items-center gap-5">
             {/* Notification */}
@@ -115,7 +178,8 @@ export default function MenuAgent({ activePage }: AdminHeaderProps) {
                 className="flex items-center gap-2 text-slate-700 hover:bg-slate-100 p-2 rounded-full transition-colors"
                 >
                 <UserCircle size={28} className="text-blue-800" />
-                <span className="font-semibold text-sm hidden md:block">Agent</span>
+                {/* ✅ เปลี่ยนจาก Fixed Text "Agent" เป็นตัวแปร displayName */}
+                <span className="font-semibold text-sm hidden md:block">{displayName}</span>
                 <ChevronDown
                     size={16}
                     className={`transition-transform ${isMenuOpen ? 'rotate-180' : ''}`}
@@ -141,8 +205,6 @@ export default function MenuAgent({ activePage }: AdminHeaderProps) {
         </div>
 
       </header>
-
-
 
       {/* Mobile Nav (Dropdown style) */}
       {isNavOpen && (

@@ -10,3 +10,18 @@ export const getAgentById = async (id: string) => {
     throw error;
   }
 };
+
+
+// สร้าง Type สำหรับ Response ที่มีเลขคิวแถมมาด้วย
+export interface AgentWithQueue extends Agent {
+  queue_number?: number;
+}
+
+export const getAgentStatus = async (id: string): Promise<AgentWithQueue> => {
+  try {
+    const response = await api.get(`/agents/${id}`); // เรียก Backend ตามที่คุณขอ
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};

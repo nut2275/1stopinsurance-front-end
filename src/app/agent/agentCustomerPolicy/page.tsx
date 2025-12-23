@@ -5,7 +5,7 @@ import MenuAgent from '@/components/element/MenuAgent'
 function page() {
   return (
     <div>
-      <MenuAgent activePage="/agent/AgentCustomerPolicy"/>
+      <MenuAgent activePage="/agent/agentCustomerPolicy"/>
       <AgentPolicyPage />
     </div>
   )
