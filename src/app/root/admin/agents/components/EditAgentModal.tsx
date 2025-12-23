@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Edit, Save, X, ShieldAlert, Phone, MapPin, Hash, Loader2 } from 'lucide-react';
+import { Edit, Save, X, ShieldAlert, Phone, MapPin, Hash, Loader2, Lock, Eye, EyeOff } from 'lucide-react';
 import { Agent } from '@/types/agent';
 import { toInputDate } from '../utils';
 import FormInput from './FormInput';
@@ -12,13 +12,13 @@ interface EditAgentModalProps {
 }
 
 const EditAgentModal: React.FC<EditAgentModalProps> = ({ isOpen, onClose, agent, onSave }) => {
-    const [formData, setFormData] = useState<Partial<Agent>>({});
+    const [formData, setFormData] = useState<Partial<Agent> & { password?: string }>({});
     const [isSaving, setIsSaving] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
-    // Load agent data when modal opens
     useEffect(() => {
         if (agent) {
-            setFormData(agent);
+            setFormData({ ...agent, password: '' });
         }
     }, [agent]);
 
@@ -29,9 +29,20 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({ isOpen, onClose, agent,
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // ✅ เพิ่มการยืนยัน (Confirm) ก่อนบันทึก
+        if (!confirm('คุณต้องการบันทึกการเปลี่ยนแปลงข้อมูลใช่หรือไม่?')) {
+            return;
+        }
+
         setIsSaving(true);
         try {
-            await onSave(formData);
+            const payload = { ...formData };
+            // ถ้า password ว่าง ให้ลบออกไปเลย จะได้ไม่ส่งไปทับของเดิม
+            if (!payload.password || payload.password.trim() === '') {
+                delete payload.password;
+            }
+            await onSave(payload);
             onClose();
         } catch (error) {
             console.error(error);
@@ -57,7 +68,7 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({ isOpen, onClose, agent,
                 <form onSubmit={handleSubmit}>
                     <div className="p-6 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
                         
-                        {/* Admin Override */}
+                        {/* 1. Admin Override Status */}
                         <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100">
                             <h4 className="text-sm font-bold text-blue-800 uppercase tracking-wider mb-3 flex items-center gap-2"><ShieldAlert size={16}/> การจัดการสถานะ (Admin Override)</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -76,7 +87,7 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({ isOpen, onClose, agent,
                             </div>
                         </div>
 
-                        {/* Personal Info */}
+                        {/* 2. Personal Info */}
                         <div>
                             <h4 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-4 border-b pb-2">ข้อมูลส่วนตัว</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -92,7 +103,7 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({ isOpen, onClose, agent,
                             </div>
                         </div>
 
-                        {/* License Info */}
+                        {/* 3. License Info */}
                         <div>
                             <h4 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-4 border-b pb-2">ข้อมูลทางกฎหมาย</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -104,6 +115,39 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({ isOpen, onClose, agent,
                                 </div>
                             </div>
                         </div>
+
+                        {/* 4. Security */}
+                        <div className="bg-red-50/50 p-4 rounded-xl border border-red-100 mt-4">
+                            <h4 className="text-sm font-bold text-red-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                <Lock size={16}/> ความปลอดภัย (Security)
+                            </h4>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                                    เปลี่ยนรหัสผ่านใหม่ (Reset Password)
+                                    <span className="text-xs text-slate-400 font-normal ml-2">* เว้นว่างไว้หากไม่ต้องการเปลี่ยน</span>
+                                </label>
+                                <div className="relative">
+                                    <div className="absolute left-3 top-3 text-slate-400"><Lock size={16} /></div>
+                                    <input 
+                                        type={showPassword ? "text" : "password"}
+                                        name="password"
+                                        autoComplete="new-password"
+                                        className="w-full pl-10 pr-12 py-2.5 bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 text-sm transition-all"
+                                        placeholder="ระบุรหัสผ่านใหม่..."
+                                        value={formData.password || ''}
+                                        onChange={handleChange}
+                                    />
+                                    <button 
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 focus:outline-none"
+                                    >
+                                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
                     <div className="flex justify-end gap-3 px-6 py-4 bg-slate-50 border-t border-slate-200 rounded-b-2xl">
                         <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-xl text-slate-600 hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-200 font-medium transition-all text-sm">ยกเลิก</button>
