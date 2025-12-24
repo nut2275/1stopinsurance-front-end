@@ -33,30 +33,31 @@ const Login_AgentPage = () => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
       const res = await api.post("/agents/login", form);
 
-      // console.log("res = \n" + res.data.Agent);
       if(res.data){
         const { token } = res.data;
         localStorage.setItem("token", token);
-        const decoded = jwtDecode<DecodedToken>(token);
-        // console.log(decoded.id);
-        // console.log(decoded.role);
-        // console.log(decoded.username);
         
-        router.push("/agent/agent_dashboard");
+        // ⚠️ เช็คตรงนี้: ให้ดู console.log(res.data) ว่าข้อมูลคนใช้อยู่ใน key ไหน
+        // สมมติว่าอยู่ใน res.data.Agent ตาม comment ของคุณ
+        const agentInfo = res.data.Agent || res.data.user; 
+        
+        if (agentInfo) {
+             localStorage.setItem('agentData', JSON.stringify(agentInfo));
+             router.push("/agent/agent_dashboard");
+        } else {
+             setMessage("ไม่พบข้อมูลผู้ใช้งานในระบบ");
+        }
       }
       
-      
-
     } catch (err: unknown) {
       const error = err as AxiosError<{ message: string }>;
       setMessage(error.response?.data?.message || "เกิดข้อผิดพลาดที่ server")
-      // alert(error.response?.data?.message || "เกิดข้อผิดพลาดที่ server");
     }
     setLoading(false);
   };

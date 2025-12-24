@@ -326,7 +326,84 @@ export default function ManagePolicyPage() {
   // ... (Keep handleCopyPolicy, handleFileChange, handleSave, Date Changes, Status Change, renderImageUpload as is) ...
   const handleCopyPolicy = () => { if (editForm.policy_number) { navigator.clipboard.writeText(editForm.policy_number); setIsCopied(true); setTimeout(() => setIsCopied(false), 2000); } };
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>, field: keyof typeof editForm) => { const file = e.target.files?.[0]; if (file) { const reader = new FileReader(); reader.onloadend = () => { setEditForm((prev) => ({ ...prev, [field]: reader.result as string })); }; reader.readAsDataURL(file); } };
-  const handleSave = async () => { if (!selectedItem) return; try { await api.put(`/purchase/admin/${selectedItem._id}`, { ...editForm }); alert("บันทึกข้อมูลสำเร็จ"); setIsModalOpen(false); fetchData(); } catch (error) { console.error("Save error:", error); alert("เกิดข้อผิดพลาดในการบันทึก"); } };
+  const handleSave = async () => {
+    if (!selectedItem) return;
+
+    try {
+      // 1. บันทึกข้อมูลกรมธรรม์ตามปกติ
+      await api.put(`/purchase/admin/${selectedItem._id}`, { ...editForm });
+
+      // ============================================
+      // 🟢 เริ่มส่วนระบบแจ้งเตือน (Notification Logic)
+      // ============================================
+      
+      // ดึง ID ลูกค้าและตัวแทน (เช็ค type เพราะบางทีมาเป็น object บางทีเป็น string)
+      const customerId = typeof selectedItem.customer_id === 'object' ? selectedItem.customer_id._id : selectedItem.customer_id;
+      const agentId = typeof selectedItem.agent_id === 'object' ? selectedItem.agent_id._id : selectedItem.agent_id;
+      const carReg = editForm.car_registration || "ไม่ระบุทะเบียน";
+
+      // กำหนดข้อความแจ้งเตือนตามสถานะ
+      let message = `มีการแก้ไขข้อมูลกรมธรรม์ รถทะเบียน ${carReg}`;
+      let type = 'info'; // info, success, warning
+
+      // กรณีเปลี่ยนสถานะเป็น Active (อนุมัติ)
+      if (editForm.status === 'active' && selectedItem.status !== 'active') {
+          message = `กรมธรรม์รถทะเบียน ${carReg} ได้รับการอนุมัติแล้ว ความคุ้มครองเริ่ม ${formatDisplayDate(editForm.start_date)}`;
+          type = 'success';
+      }
+      // กรณีเปลี่ยนสถานะเป็น Rejected (ปฏิเสธ)
+      else if (editForm.status === 'rejected' && selectedItem.status !== 'rejected') {
+          message = `กรมธรรม์รถทะเบียน ${carReg} ถูกปฏิเสธเนื่องจาก: ${editForm.reject_reason || "ข้อมูลไม่ครบถ้วน"}`;
+          type = 'warning';
+      }
+      // กรณีเปลี่ยนสถานะเป็น Pending Payment
+      else if (editForm.status === 'pending_payment' && selectedItem.status !== 'pending_payment') {
+          message = `กรุณาชำระเงินสำหรับกรมธรรม์รถทะเบียน ${carReg}`;
+          type = 'warning';
+      }
+      // กรณีใกล้หมดอายุ (Expired)
+      else if (editForm.status === 'expired') {
+         message = `กรมธรรม์รถทะเบียน ${carReg} หมดอายุแล้ว`;
+         type = 'warning';
+      }
+
+      // --- ส่งแจ้งเตือนให้ Customer ---
+      if (customerId) {
+        await api.post('/api/notifications', {
+          recipientId: customerId,
+          recipientType: 'customer',
+          message: message,
+          type: type,
+          relatedPurchaseId: selectedItem._id
+        });
+      }
+
+      // --- ส่งแจ้งเตือนให้ Agent (ถ้ามี) ---
+      if (agentId) {
+        // อาจจะปรับข้อความให้ Agent นิดหน่อย
+        const agentMessage = `(ลูกค้า: ${editForm.customer_first_name}) ${message}`;
+        await api.post('/api/notifications', {
+          recipientId: agentId,
+          recipientType: 'agent',
+          message: agentMessage, // หรือใช้ message เดียวกัน
+          type: type,
+          relatedPurchaseId: selectedItem._id
+        });
+      }
+      
+      // ============================================
+      // 🔴 จบส่วนระบบแจ้งเตือน
+      // ============================================
+
+      alert("บันทึกข้อมูลและส่งการแจ้งเตือนสำเร็จ");
+      setIsModalOpen(false);
+      fetchData(); // โหลดข้อมูลใหม่
+
+    } catch (error) {
+      console.error("Save error:", error);
+      alert("เกิดข้อผิดพลาดในการบันทึก");
+    }
+  };
   const handleStartDateChange = (e: ChangeEvent<HTMLInputElement>) => { const newStart = e.target.value; const newEnd = addYearsToDate(newStart, 1); setEditForm({ ...editForm, start_date: newStart, end_date: newEnd }); };
   const handleEndDateChange = (e: ChangeEvent<HTMLInputElement>) => { const newEnd = e.target.value; const newStart = addYearsToDate(newEnd, -1); setEditForm({ ...editForm, start_date: newStart, end_date: newEnd }); };
   const handleStatusChange = (e: ChangeEvent<HTMLSelectElement>) => { const newStatus = e.target.value; let updates: any = { status: newStatus }; if (newStatus === 'active') { if(!editForm.start_date) { const today = getTodayString(); updates.start_date = today; updates.end_date = addYearsToDate(today, 1); } } setEditForm({ ...editForm, ...updates }); };

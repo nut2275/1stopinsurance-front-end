@@ -4,9 +4,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Bell, ChevronDown, UserCircle, LogOut, Menu, X } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter, usePathname } from 'next/navigation'; // ✅ 1. Import Router
-import { jwtDecode } from "jwt-decode"; // ✅ 2. Import jwt-decode
-import api from '@/services/api'; // ✅ 3. Import API
+import { useRouter, usePathname } from 'next/navigation';
+import { jwtDecode } from "jwt-decode";
+import api from '@/services/api';
 
 // Type สำหรับ Token
 interface DecodedToken {
@@ -15,10 +15,16 @@ interface DecodedToken {
   exp: number;
 }
 
-// Type อย่างง่ายสำหรับ Agent (เอาแค่ field ที่ใช้)
+// Type สำหรับ Agent
 interface AgentData {
   first_name: string;
   verification_status: string;
+}
+
+// Type สำหรับ Response ของ Notification API (ตาม Controller ที่ทำไว้)
+interface NotificationResponse {
+  success: boolean;
+  unreadCount: number;
 }
 
 type AdminHeaderProps = {
@@ -40,55 +46,64 @@ export default function MenuAgent({ activePage }: AdminHeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
   
-  // State สำหรับแสดงชื่อจริง (Optional)
+  // State
   const [displayName, setDisplayName] = useState("Agent");
+  const [unreadCount, setUnreadCount] = useState(0); // ✅ เพิ่ม State สำหรับนับแจ้งเตือน
 
   const logout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("agentData"); // ลบข้อมูล cached ด้วย
     setIsMenuOpen(false); 
     window.location.assign("/agent/login");
   };
 
-  // ✅ 4. Logic ตรวจสอบสถานะ
+  // ✅ Logic ตรวจสอบสถานะ + ดึง Notification
   useEffect(() => {
-    const checkAgentStatus = async () => {
+    const initData = async () => {
       try {
         const token = localStorage.getItem("token");
-
-        // ถ้าไม่มี Token ก็ปล่อยไป (หรือจะ Redirect ไป Login ก็ได้แล้วแต่ Logic หลัก)
         if (!token) return;
 
         // Decode Token
         const decoded = jwtDecode<DecodedToken>(token);
         
         if (decoded && decoded.id) {
-          // ดึงข้อมูล Agent ล่าสุดจาก Server
-          const response = await api.get<AgentData>(`/agents/${decoded.id}`);
-          const agent = response.data;
+          // 1. ดึงข้อมูล Agent และ เช็ค Status
+          const agentRes = await api.get<AgentData>(`/agents/${decoded.id}`);
+          const agent = agentRes.data;
 
-          // (Optional) อัปเดตชื่อใน UI
-          if (agent.first_name) {
-            setDisplayName(agent.first_name);
-          }
+          if (agent.first_name) setDisplayName(agent.first_name);
 
-          // *** Main Logic: เช็ค status ***
+          // เช็ค Verification Status
           if (agent.verification_status === 'in_review' || agent.verification_status === 'rejected') {
-            // ถ้าสถานะรอตรวจสอบ และไม่ได้อยู่หน้า status ให้ดีดไปทันที
             if (pathname !== '/agent/status') {
               router.replace('/agent/status');
             }
           }
+
+          // 2. ✅ ดึงจำนวนแจ้งเตือนที่ยังไม่อ่าน
+          try {
+            const notifyRes = await api.get<NotificationResponse>(`/api/notifications?userId=${decoded.id}`);
+            if (notifyRes.data && typeof notifyRes.data.unreadCount === 'number') {
+              setUnreadCount(notifyRes.data.unreadCount);
+            }
+          } catch (notifyError) {
+            console.error("Failed to fetch notifications:", notifyError);
+            // ไม่ต้องทำอะไรถ้าดึงแจ้งเตือนพลาด ให้ User ใช้งานต่อได้
+          }
         }
       } catch (error) {
-        console.error("Failed to check agent status:", error);
-        // กรณี Token หมดอายุหรือ Error อาจจะสั่ง Logout ได้
-        // logout();
+        console.error("Failed to initialize agent data:", error);
       }
     };
 
-    checkAgentStatus();
-  }, [router, pathname]); // รันใหม่ทุกครั้งที่เปลี่ยนหน้า เพื่อกันคนแอบเข้า URL ตรงๆ
-  // ✅ 4. Logic ตรวจสอบสถานะ
+    initData();
+    
+    // Optional: ตั้ง Interval ให้ดึงข้อมูลใหม่ทุก 1 นาที เพื่อให้ Real-time ขึ้น
+    const interval = setInterval(initData, 60000);
+    return () => clearInterval(interval);
+
+  }, [router, pathname]);
 
 
   // Click Outside logic
@@ -106,7 +121,6 @@ export default function MenuAgent({ activePage }: AdminHeaderProps) {
     <div className="top-0 z-50" style={{zIndex:9999}}>
       {/* Header */}
       <header className="sticky bg-white/95 backdrop-blur-sm shadow-sm px-4 sm:px-6 h-20 flex items-center justify-between border-b border-slate-200">
-
 
         {/* Desktop Right Side */}
         <div className='flex'>
@@ -157,18 +171,24 @@ export default function MenuAgent({ activePage }: AdminHeaderProps) {
           </div>
 
         <div className=" flex items-center gap-5">
-            {/* Notification */}
-            <Link href={'notification'} className={`relative w-8 h-8 transition-colors rounded-full ${
+            {/* ✅ Notification Section ปรับปรุงใหม่ */}
+            <Link href={'/agent/notification'} className={`relative w-9 h-9 flex items-center justify-center transition-colors rounded-full hover:bg-slate-100 ${
                   activePage === "notification"
-                    ? 'bg-blue-500 text-white shadow-md'
-                    : 'text-slate-500 hover:text-blue-600'
+                    ? 'text-blue-600 bg-blue-50'
+                    : 'text-slate-500'
                 }`}>
 
-                <Bell size={24} className='m-1 ' />
-                <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                </span>
+                <Bell size={24} />
+                
+                {/* แสดงจุดแดงเมื่อมี unreadCount > 0 */}
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 flex h-4 w-4">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 text-[10px] text-white justify-center items-center font-bold border-2 border-white">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  </span>
+                )}
             </Link>
 
             {/* User Dropdown */}
@@ -178,7 +198,6 @@ export default function MenuAgent({ activePage }: AdminHeaderProps) {
                 className="flex items-center gap-2 text-slate-700 hover:bg-slate-100 p-2 rounded-full transition-colors"
                 >
                 <UserCircle size={28} className="text-blue-800" />
-                {/* ✅ เปลี่ยนจาก Fixed Text "Agent" เป็นตัวแปร displayName */}
                 <span className="font-semibold text-sm hidden md:block">{displayName}</span>
                 <ChevronDown
                     size={16}
@@ -206,7 +225,7 @@ export default function MenuAgent({ activePage }: AdminHeaderProps) {
 
       </header>
 
-      {/* Mobile Nav (Dropdown style) */}
+      {/* Mobile Nav */}
       {isNavOpen && (
         <div className="sm:hidden bg-white shadow-md border-t border-slate-200 animate-fade-in-down">
           <div className="flex flex-col p-3 space-y-2">
