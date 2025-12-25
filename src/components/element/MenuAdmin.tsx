@@ -4,10 +4,19 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Bell, ChevronDown, UserCircle, LogOut, Menu, X } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { jwtDecode } from "jwt-decode"; // ✅ อย่าลืม install jwt-decode
+import api from '@/services/api';       // ✅ เรียกใช้ API ตัวเดิม
 
 type AdminHeaderProps = {
   activePage: string;
 };
+
+// Interface สำหรับ Token
+interface DecodedToken {
+  id: string;
+  role: string;
+  exp: number;
+}
 
 const navLinks = [
   { href: '/root/admin/dashboard', label: 'แดชบอร์ด' },
@@ -18,164 +27,226 @@ const navLinks = [
   { href: '/root/admin/customers', label: 'จัดการลูกค้า' },
 ];
 
-
 export default function MenuAdmin({ activePage }: AdminHeaderProps) {
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [isNavOpen, setIsNavOpen] = useState(false);
-    const menuRef = useRef<HTMLDivElement>(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isNavOpen, setIsNavOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0); // ✅ เพิ่ม State นับแจ้งเตือน
+  const menuRef = useRef<HTMLDivElement>(null);
 
-    const logout = () => {
-        localStorage.removeItem("token");
-        setIsMenuOpen(false); 
-        window.location.assign("/");
+  const logout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("userData"); // ล้างข้อมูล Admin
+    setIsMenuOpen(false); 
+    window.location.assign("/");
+  };
+
+  // ✅ ฟังก์ชันดึงจำนวนแจ้งเตือน
+const fetchUnreadCount = async () => {
+    try {
+      let userId = "";
+      
+      // 1. หา ID จริงจาก Token (เผื่ออนาคตใช้ส่งส่วนตัว)
+      const token = localStorage.getItem("token");
+      if (token) {
+        try {
+            const decoded: any = jwtDecode(token);
+            userId = decoded.id || decoded._id || decoded.userId; 
+        } catch (e) { console.error(e); }
+      }
+
+      // 2. ID กลางสำหรับ Admin (ที่ใช้ตอนสมัครสมาชิก)
+      // ต้องตรงกับที่ส่งไปตอน RegisterAgentPage
+      const commonAdminId = "000000000000000000000000"; 
+
+      // เรียก API 2 ครั้ง (หรือจะแก้ Backend ให้รองรับก็ได้ แต่วิธีนี้ง่ายกว่า)
+      // ครั้งที่ 1: ดึงของ Admin คนนี้โดยเฉพาะ
+      const res1 = userId ? await api.get(`/api/notifications?userId=${userId}`) : { data: { unreadCount: 0 } };
+      
+      // ครั้งที่ 2: ดึงของ Admin ส่วนกลาง (แจ้งเตือนสมัครสมาชิก)
+      const res2 = await api.get(`/api/notifications?userId=${commonAdminId}`);
+
+      let totalUnread = 0;
+      if (res1.data && typeof res1.data.unreadCount === 'number') totalUnread += res1.data.unreadCount;
+      if (res2.data && typeof res2.data.unreadCount === 'number') totalUnread += res2.data.unreadCount;
+
+      setUnreadCount(totalUnread);
+
+    } catch (e) {
+      console.error("Failed to fetch notification count:", e);
+    }
+  };
+
+  // ✅ Setup Interval และ Event Listener
+  useEffect(() => {
+    fetchUnreadCount(); // เรียกครั้งแรก
+
+    const interval = setInterval(fetchUnreadCount, 60000); // เช็คทุก 1 นาที
+    window.addEventListener('refreshNotification', fetchUnreadCount); // รอคำสั่ง Refresh
+
+    return () => {
+        clearInterval(interval);
+        window.removeEventListener('refreshNotification', fetchUnreadCount);
     };
+  }, []);
 
-    useEffect(() => {
-        function handleClickOutside(event: MouseEvent) {
-            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-                setIsMenuOpen(false);
-            }
-        }
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [menuRef]);
+  // Click Outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [menuRef]);
 
-    return (
-        <div className="top-0 z-50" style={{zIndex:9999}}>
-        {/* Header */}
-        <header className="sticky bg-white/95 backdrop-blur-sm shadow-sm px-4 sm:px-6 h-20 flex items-center justify-between border-b border-slate-200">
+  return (
+    <div className="top-0 z-50" style={{zIndex:9999}}>
+    {/* Header */}
+    <header className="sticky bg-white/95 backdrop-blur-sm shadow-sm px-4 sm:px-6 h-20 flex items-center justify-between border-b border-slate-200">
 
+      {/* Desktop Right Side */}
+      <div className='flex'>
+        {/* Mobile Hamburger */}
+        <button
+          onClick={() => setIsNavOpen(!isNavOpen)}
+          className="sm:hidden text-slate-600 hover:text-blue-600 p-2 rounded-md"
+        >
+          {isNavOpen ? <X size={26} /> : <Menu size={26} />}
+        </button>
 
-            {/* Desktop Right Side */}
-            <div className='flex'>
-                {/* Mobile Hamburger */}
-                <button
-                    onClick={() => setIsNavOpen(!isNavOpen)}
-                    className="sm:hidden text-slate-600 hover:text-blue-600 p-2 rounded-md"
-                    >
-                    {isNavOpen ? <X size={26} /> : <Menu size={26} />}
-                </button>
-
-                {/* Logo */}
-                <div className="flex items-center gap-3">
-                    <Link href="/admin/dashboard" className="flex items-center gap-2">
-                        <Image
-                            src="/fotos/Logo.png"
-                            alt="logo"
-                            width="48"
-                            height="48"
-                            className="h-10 w-auto"
-                            onError={(e) => {
-                                (e.target as HTMLImageElement).src = "https://placehold.co/48x48/1d4ed8/FFFFFF?text=1S";
-                            }}
-                        />
-                        <span className="text-lg sm:text-xl font-bold text-blue-800 sm:block">
-                        1StopInsurance
-                        </span>
-                    </Link>
-                </div>
-            </div>
-
-            <div className=" flex items-center gap-5">
-                {/* Notification */}
-                <button className="relative text-slate-500 hover:text-blue-600 transition-colors">
-                    <Bell size={24} />
-                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                    </span>
-                </button>
-
-                {/* User Dropdown */}
-                <div className="relative" ref={menuRef}>
-                    <button
-                    onClick={() => setIsMenuOpen(!isMenuOpen)}
-                    className="flex items-center gap-2 text-slate-700 hover:bg-slate-100 p-2 rounded-full transition-colors"
-                    >
-                    <UserCircle size={28} className="text-blue-800" />
-                    <span className="font-semibold text-sm hidden md:block">Admin</span>
-                    <ChevronDown
-                        size={16}
-                        className={`transition-transform ${isMenuOpen ? 'rotate-180' : ''}`}
-                    />
-                    </button>
-
-                    {isMenuOpen && (
-                    <div className="cursor-pointer absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl py-2 animate-fade-in-down">
-                        <div className="px-4 py-2 border-b">
-                        <p className="text-sm font-semibold text-slate-800">Admin User</p>
-                        <p className="text-xs text-slate-500">Administrator</p>
-                        </div>
-                        <div
-                        onClick={logout}
-                        className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                        >
-                            <LogOut size={16} />
-                            <span>ออกจากระบบ</span>
-                        </div>
-                    </div>
-                    )}
-                </div>
-            </div>
-
-        </header>
-
-        {/* Desktop Nav */}
-        <nav className="hidden sm:flex justify-center items-center bg-[#f0f6ff]">
-            <div className="flex gap-2 bg-white p-3 rounded-full m-4 shadow">
-            {navLinks.map((link) => (
-                <Link
-                key={link.href}
-                href={link.href}
-                className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-200 ${
-                    activePage === link.href
-                    ? 'bg-blue-600 text-white shadow-md'
-                    : 'text-slate-600 hover:bg-slate-200'
-                }`}
-                >
-                {link.label}
-                </Link>
-            ))}
-            </div>
-        </nav>
-
-        {/* Mobile Nav (Dropdown style) */}
-        {isNavOpen && (
-            <div className="sm:hidden bg-white shadow-md border-t border-slate-200 animate-fade-in-down">
-            <div className="flex flex-col p-3 space-y-2">
-                {navLinks.map((link) => (
-                <Link
-                    key={link.href}
-                    href={link.href}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    activePage === link.href
-                        ? 'bg-blue-600 text-white'
-                        : 'text-slate-700 hover:bg-slate-100'
-                    }`}
-                >
-                    {link.label}
-                </Link>
-                ))}
-            </div>
-            </div>
-        )}
-
-        {/* Animation */}
-        <style jsx global>{`
-            @keyframes fade-in-down {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-            }
-            .animate-fade-in-down {
-            animation: fade-in-down 0.2s ease-out;
-            }
-        `}</style>
+        {/* Logo */}
+        <div className="flex items-center gap-3">
+          <Link href="/root/admin/dashboard" className="flex items-center gap-2">
+            <Image
+              src="/fotos/Logo.png"
+              alt="logo"
+              width="48"
+              height="48"
+              className="h-10 w-auto"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = "https://placehold.co/48x48/1d4ed8/FFFFFF?text=1S";
+              }}
+            />
+            <span className="text-lg sm:text-xl font-bold text-blue-800 sm:block">
+            1StopInsurance
+            </span>
+          </Link>
         </div>
-    );
+      </div>
+
+      <div className=" flex items-center gap-5">
+        
+        {/* ✅ Notification Bell (Updated) */}
+        <Link href={'/root/admin/notification'} className={`relative w-9 h-9 flex items-center justify-center transition-colors rounded-full hover:bg-slate-100 ${
+              activePage === "notification"
+                ? 'text-blue-600 bg-blue-50'
+                : 'text-slate-500'
+            }`}>
+
+            <Bell size={24} />
+            
+            {/* แสดงจุดแดงเมื่อมี unreadCount > 0 */}
+            {unreadCount > 0 && (
+              <span className="absolute top-1 right-1 flex h-4 w-4">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 text-[10px] text-white justify-center items-center font-bold border-2 border-white">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              </span>
+            )}
+        </Link>
+
+        {/* User Dropdown */}
+        <div className="relative" ref={menuRef}>
+          <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="flex items-center gap-2 text-slate-700 hover:bg-slate-100 p-2 rounded-full transition-colors"
+          >
+            <UserCircle size={28} className="text-blue-800" />
+            <span className="font-semibold text-sm hidden md:block">Admin</span>
+            <ChevronDown
+              size={16}
+              className={`transition-transform ${isMenuOpen ? 'rotate-180' : ''}`}
+            />
+          </button>
+
+          {isMenuOpen && (
+            <div className="cursor-pointer absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl py-2 animate-fade-in-down">
+              <div className="px-4 py-2 border-b">
+                <p className="text-sm font-semibold text-slate-800">Admin User</p>
+                <p className="text-xs text-slate-500">Administrator</p>
+              </div>
+              <div
+                onClick={logout}
+                className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+              >
+                <LogOut size={16} />
+                <span>ออกจากระบบ</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+    </header>
+
+    {/* Desktop Nav */}
+    <nav className="hidden sm:flex justify-center items-center bg-[#f0f6ff]">
+      <div className="flex gap-2 bg-white p-3 rounded-full m-4 shadow">
+      {navLinks.map((link) => (
+        <Link
+          key={link.href}
+          href={link.href}
+          className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-200 ${
+            activePage === link.href
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'text-slate-600 hover:bg-slate-200'
+          }`}
+        >
+          {link.label}
+        </Link>
+      ))}
+      </div>
+    </nav>
+
+    {/* Mobile Nav (Dropdown style) */}
+    {isNavOpen && (
+      <div className="sm:hidden bg-white shadow-md border-t border-slate-200 animate-fade-in-down">
+      <div className="flex flex-col p-3 space-y-2">
+        {navLinks.map((link) => (
+        <Link
+          key={link.href}
+          href={link.href}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+          activePage === link.href
+            ? 'bg-blue-600 text-white'
+            : 'text-slate-700 hover:bg-slate-100'
+          }`}
+        >
+          {link.label}
+        </Link>
+        ))}
+      </div>
+      </div>
+    )}
+
+    {/* Animation */}
+    <style jsx global>{`
+      @keyframes fade-in-down {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      }
+      .animate-fade-in-down {
+      animation: fade-in-down 0.2s ease-out;
+      }
+    `}</style>
+    </div>
+  );
 }

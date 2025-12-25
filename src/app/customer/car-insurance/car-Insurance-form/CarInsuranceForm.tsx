@@ -2,32 +2,13 @@
 
 import React, { useEffect, useMemo, useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { DriveEta, CalendarToday, Build, CheckCircle } from "@mui/icons-material";
+import { CheckCircle } from "@mui/icons-material";
 import api from "@/services/api";
-
-/* ===================== Types ===================== */
-
-interface CarDataDoc {
-  brand: string;
-  models: {
-    name: string;
-    variants: string[];
-  }[];
-}
-
-interface SearchCriteria {
-  year: string;
-  brand: string;
-  model: string;
-  variant: string;
-  level: string;
-}
 
 export default function CarInsuranceForm() {
   const router = useRouter();
 
   /* ===================== State ===================== */
-
   const [insuranceType, setInsuranceType] = useState<string>("ชั้น 1");
   const [year, setYear] = useState<string>("");
   const [brand, setBrand] = useState<string>("");
@@ -41,7 +22,6 @@ export default function CarInsuranceForm() {
   const [loading, setLoading] = useState<boolean>(false);
 
   /* ===================== Year Options ===================== */
-
   const yearOptions = useMemo(() => {
     const currentYear = new Date().getFullYear();
     return Array.from(
@@ -50,17 +30,19 @@ export default function CarInsuranceForm() {
     );
   }, []);
 
-  /* ===================== Load Brands ===================== */
-
+  /* ===================== 1. Load Brands (เมื่อเลือกปี) ===================== */
   useEffect(() => {
+    // โหลด Brand ทั้งหมด (หรือจะกรองตาม year ก็ได้ถ้าต้องการ)
+    const params = year ? { year } : {};
+    
+    // ✅ แก้ไข URL ให้ตรงกับ server.ts ("/car-master")
     api
-      .get<string[]>("/api/car-data/brands")
+      .get<string[]>("/car-master/brands", { params }) 
       .then((res) => setBrands(res.data))
-      .catch(console.error);
-  }, []);
+      .catch((err) => console.error("Failed to load brands:", err));
+  }, [year]);
 
-  /* ===================== Load Models ===================== */
-
+  /* ===================== 2. Load Models (เมื่อเลือกยี่ห้อ) ===================== */
   useEffect(() => {
     if (!brand) return;
 
@@ -69,87 +51,86 @@ export default function CarInsuranceForm() {
     setModels([]);
     setVariants([]);
 
+    const params: any = { brand };
+    if (year) params.year = year;
+
+    // ✅ แก้ไข URL ให้ตรงกับ server.ts ("/car-master")
     api
-      .get<string[]>("/api/car-data/models", {
-        params: { brand },
-      })
+      .get<string[]>("/car-master/models", { params })
       .then((res) => setModels(res.data))
-      .catch(console.error);
-  }, [brand]);
+      .catch((err) => console.error("Failed to load models:", err));
+  }, [brand, year]);
 
-  /* ===================== Load Variants ===================== */
-
+  /* ===================== 3. Load SubModels (เมื่อเลือกรุ่น) ===================== */
   useEffect(() => {
     if (!brand || !model) return;
 
     setVariant("");
     setVariants([]);
 
+    const params: any = { brand, model };
+    if (year) params.year = year;
+
+    // ✅ แก้ไข URL ให้ตรงกับ server.ts ("/car-master") และ route ("/sub-models")
     api
-      .get<string[]>("/api/car-data/variants", {
-        params: { brand, model },
-      })
+      .get<string[]>("/car-master/sub-models", { params }) 
       .then((res) => setVariants(res.data))
-      .catch(console.error);
-  }, [brand, model]);
+      .catch((err) => console.error("Failed to load variants:", err));
+  }, [brand, model, year]);
 
   /* ===================== Submit ===================== */
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
 
-const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
+    if (!year || !brand || !model || !variant) {
+      alert("กรุณาเลือกข้อมูลรถให้ครบถ้วน");
+      return;
+    }
 
-  if (!year || !brand || !model || !variant) {
-    alert("กรุณาเลือกข้อมูลรถให้ครบถ้วน");
-    return;
-  }
+    setLoading(true);
 
-  setLoading(true);
+    const params: Record<string, string> = {
+      year,
+      brand,
+      model,
+      variant, 
+    };
 
-  const params: Record<string, string> = {
-    year,
-    brand,
-    model,
-    variant,
+    if (insuranceType !== "ไม่ระบุ") {
+      params.level = insuranceType;
+    }
+
+    try {
+      // อันนี้เรียก /api/plans ถูกต้องแล้ว (เพราะอยู่ใน CarInsuranceRate.routes.ts)
+      const res = await api.get("/api/plans", { params });
+
+      localStorage.setItem(
+        "searchCriteria",
+        JSON.stringify({
+          year,
+          carBrand: brand,
+          model,
+          subModel: variant,
+          insuranceType
+        })
+      );
+
+      localStorage.setItem(
+        "recommendedPlans",
+        JSON.stringify(res.data)
+      );
+
+      router.push("/customer/car-insurance/insurance");
+    } catch (err) {
+      console.error(err);
+      localStorage.setItem("recommendedPlans", JSON.stringify([]));
+      router.push("/customer/car-insurance/insurance");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  if (insuranceType !== "ไม่ระบุ") {
-    params.level = insuranceType;
-  }
-
-  try {
-    const res = await api.get("/api/plans", { params });
-
-    // ✅ เก็บข้อมูลรถไว้ใช้หน้าถัดไป
-    localStorage.setItem(
-      "searchCriteria",
-      JSON.stringify({
-        year,
-        carBrand: brand,
-        model,
-        subModel: variant,
-        insuranceType
-      })
-    );
-
-    localStorage.setItem(
-      "recommendedPlans",
-      JSON.stringify(res.data)
-    );
-
-    router.push("/customer/car-insurance/insurance");
-  } catch (err) {
-    console.error(err);
-    localStorage.setItem("recommendedPlans", JSON.stringify([]));
-    router.push("/customer/car-insurance/insurance");
-  } finally {
-    setLoading(false);
-  }
-};
-
-  
-
   /* ===================== UI ===================== */
-
   return (
     <div className="min-h-screen bg-white">
       <div className="max-w-4xl mx-auto px-4 pb-20">

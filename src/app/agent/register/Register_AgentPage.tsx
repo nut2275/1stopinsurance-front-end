@@ -88,19 +88,16 @@ export default function RegisterAgentPage() {
     }
   };
 
-  // ✅ ฟังก์ชันใหม่สำหรับจัดการไฟล์รูปภาพ
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // เช็คขนาดไฟล์ (เช่น ไม่เกิน 2MB) เพื่อไม่ให้ Backend พัง
       if (file.size > 5 * 1024 * 1024) { 
-        alert("ขนาดไฟล์รูปภาพต้องไม่เกิน 5MB"); // แจ้งเตือนลูกค้าตามจริง
+        alert("ขนาดไฟล์รูปภาพต้องไม่เกิน 5MB");
         return;
       }
 
       const reader = new FileReader();
       reader.onloadend = () => {
-        // แปลงเป็น Base64 string เพื่อส่งไปเก็บใน DB
         const base64String = reader.result as string;
         setForm((prev) => ({ ...prev, imgProfile: base64String }));
       };
@@ -108,6 +105,7 @@ export default function RegisterAgentPage() {
     }
   };
 
+  // ✅ แก้ไข: เพิ่ม Logic ส่ง Notification ในนี้
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (form.password !== form.passwordConfirm) {
@@ -118,8 +116,30 @@ export default function RegisterAgentPage() {
       if (isEdit) {
         alert("ระบบแก้ไขยังไม่เปิดใช้งานในตัวอย่างนี้");
       } else {
+        // 1. ส่งข้อมูลสมัครสมาชิก
         await api.post("/agents/register", form);
-        alert("บันทึกข้อมูลสำเร็จ!");
+
+        // 2. ✅ สร้าง Notification ส่งหา Admin
+        try {
+            // ใช้รหัสนี้แทน 'ADMIN' (เป็นรหัส 0 ยาว 24 ตัว เพื่อหลอกระบบว่าเป็น ObjectId)
+            const fakeAdminId = "000000000000000000000000"; 
+
+            await api.post("/api/notifications", {
+                recipientType: 'admin',
+                recipientId: fakeAdminId,  // ✅ แก้ตรงนี้
+                message: `มีตัวแทนใหม่สมัครสมาชิก: ${form.first_name} ${form.last_name}`,
+                type: 'info', // ✅ ลองเปลี่ยนเป็น 'info' ก่อน (เผื่อ backend ยังไม่รู้จัก 'primary')
+                sender: {
+                    name: `${form.first_name} ${form.last_name}`,
+                    role: 'agent' // ✅ ลองเปลี่ยนเป็น 'agent' ไปก่อน (เผื่อ backend ยังไม่รู้จัก 'guest')
+                }
+            });
+        } catch (notiError: any) {
+            // ✅ เพิ่มบรรทัดนี้ เพื่อดูว่า Backend ตอบว่าผิดตรงไหน
+            console.log("Notification Error Detail:", notiError.response?.data);
+        }
+
+        alert("สมัครสมาชิกสำเร็จ! กรุณารอการอนุมัติ");
         router.push("/agent/login");
       }
     } catch (error) {
@@ -145,18 +165,15 @@ export default function RegisterAgentPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           
-          {/* ✅ ส่วนอัปโหลดรูปภาพ (ย้ายมาบนสุด) */}
           <div className="flex flex-col items-center justify-center mb-6">
             <div className="relative w-32 h-32 mb-4">
               {form.imgProfile ? (
-                // แสดงรูปตัวอย่าง
                 <img
                   src={form.imgProfile}
                   alt="Profile Preview"
                   className="w-full h-full object-cover rounded-full border-4 border-blue-100 shadow-sm"
                 />
               ) : (
-                // แสดง Placeholder เมื่อยังไม่มีรูป
                 <div className="w-full h-full rounded-full bg-gray-200 flex items-center justify-center border-4 border-gray-100 text-gray-400">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
@@ -164,7 +181,6 @@ export default function RegisterAgentPage() {
                 </div>
               )}
               
-              {/* ปุ่มเลือกรูปซ้อนทับ */}
               <label 
                 htmlFor="imgProfileInput" 
                 className="absolute bottom-0 right-0 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full cursor-pointer shadow-md transition-colors"
@@ -180,13 +196,12 @@ export default function RegisterAgentPage() {
                 type="file"
                 accept="image/*"
                 onChange={handleFileChange}
-                className="hidden" // ซ่อน input ไว้
+                className="hidden" 
               />
             </div>
             <p className="text-sm text-gray-500">รูปโปรไฟล์ (ไม่เกิน 5MB)</p>
           </div>
 
-          {/* --- กลุ่มข้อมูลส่วนตัว --- */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label htmlFor="first_name" className="block font-medium mb-1">
@@ -268,7 +283,6 @@ export default function RegisterAgentPage() {
             />
           </div>
 
-          {/* --- กลุ่มข้อมูลติดต่อ --- */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label htmlFor="phone" className="block font-medium mb-1">
@@ -316,8 +330,6 @@ export default function RegisterAgentPage() {
             />
           </div>
 
-          {/* --- ข้อมูลเพิ่มเติม (Optional) --- */}
-          {/* ลบ imgProfile แบบ text ออกแล้ว เหลือแค่ Note */}
           <div>
               <label htmlFor="note" className="block font-medium mb-1">
                 หมายเหตุ
@@ -332,7 +344,6 @@ export default function RegisterAgentPage() {
               />
           </div>
 
-          {/* --- กลุ่มบัญชีผู้ใช้ --- */}
           <div className="border-t pt-4 mt-4">
             <h3 className="text-lg font-semibold text-gray-700 mb-3">
               ข้อมูลสำหรับเข้าสู่ระบบ

@@ -49,7 +49,7 @@ export default function UploadDocumentsPage() {
 
   const [registration, setRegistration] = useState("");
   const [color, setColor] = useState("");
-  const [province, setProvince] = useState(""); // ✅ เพิ่ม state จังหวัด
+  const [province, setProvince] = useState(""); 
   const [searchData, setSearchData] = useState<any>({});
 
   const idCardInputRef = useRef<HTMLInputElement>(null);
@@ -60,7 +60,6 @@ export default function UploadDocumentsPage() {
     if (storedSearch) {
       const parsedData = JSON.parse(storedSearch);
       setSearchData(parsedData);
-      console.log("Loaded Car Data:", parsedData);
     }
   }, []);
 
@@ -78,7 +77,8 @@ export default function UploadDocumentsPage() {
     if (inputRef.current) inputRef.current.value = "";
   };
 
-  const handleSubmit = async () => {
+  // ✅ ฟังก์ชัน Submit ที่เพิ่มการแจ้งเตือน Agent
+const handleSubmit = async () => {
     if (!idCardFile || !carRegFile || !registration || !color || !province) {
       alert("กรุณากรอกข้อมูลและอัปโหลดเอกสารให้ครบถ้วน");
       return;
@@ -87,6 +87,26 @@ export default function UploadDocumentsPage() {
     try {
       const idCardBase64 = await toBase64(idCardFile);
       const carRegBase64 = await toBase64(carRegFile);
+
+      // ---------------------------------------------------------
+      // ✅ 1. ดึงชื่อลูกค้าจาก LocalStorage (ตาม Logic หน้า Login)
+      // ---------------------------------------------------------
+      let customerName = "ลูกค้า (ผ่านระบบ)"; // ค่าเริ่มต้น
+      try {
+        const customerStr = localStorage.getItem("customer"); // ดึงก้อน JSON ออกมา
+        if (customerStr) {
+          const customerObj = JSON.parse(customerStr); // แปลงเป็น Object
+          if (customerObj && customerObj.first_name) {
+            // สร้างชื่อเต็ม
+            customerName = `${customerObj.first_name} ${customerObj.last_name || ""}`.trim();
+          } else if (customerObj && customerObj.username) {
+            customerName = customerObj.username;
+          }
+        }
+      } catch (error) {
+        console.error("Error parsing customer data:", error);
+      }
+      // ---------------------------------------------------------
 
       const payload = {
         customer_id: localStorage.getItem("customerBuyId"),
@@ -98,14 +118,37 @@ export default function UploadDocumentsPage() {
         year: searchData.year,
         registration: registration,
         color: color,
-        province: province, // ✅ ส่งจังหวัดไปด้วย
+        province: province,
         citizenCardImage: idCardBase64,
         carRegistrationImage: carRegBase64
       };
 
+      // 1. สร้างรายการสั่งซื้อ (Purchase)
       const response = await axios.post("http://localhost:5000/purchase/insurance", payload);
 
       if (response.status === 201) {
+        const { agent, policy_number } = response.data;
+
+        // 2. สร้างการแจ้งเตือนส่งให้ Agent
+        if (agent && agent.id) {
+            try {
+                await axios.post("http://localhost:5000/api/notifications", {
+                    recipientType: 'agent', 
+                    recipientId: agent.id,  
+                    // ✅ ใช้ตัวแปร customerName ที่ดึงมา
+                    message: `มีรายการสั่งซื้อใหม่: ${policy_number} (ทะเบียน ${registration} ${province}) รอการตรวจสอบ`,
+                    type: 'primary',
+                    sender: {
+                        name: customerName, 
+                        role: "customer"
+                    }
+                });
+                console.log("Notification sent to agent:", agent.id);
+            } catch (notiError) {
+                console.error("Failed to send notification:", notiError);
+            }
+        }
+
         alert("ระบบได้ทำการบันทึกข้อมูลแล้ว รอการตรวจสอบแล้วรอชำระเงินได้เลย");
         router.push("/customer/profile");
       }
@@ -128,7 +171,7 @@ export default function UploadDocumentsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-gray-700 text-sm font-bold mb-2">ทะเบียนรถยนต์</label>
-              <input type="text" value={registration} onChange={(e) => setRegistration(e.target.value)} placeholder="เช่น กก-1234 กรุงเทพฯ" className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none" />
+              <input type="text" value={registration} onChange={(e) => setRegistration(e.target.value)} placeholder="เช่น กก-1234" className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none" />
             </div>
             <div>
               <label className="block text-gray-700 text-sm font-bold mb-2">สีรถยนต์</label>
@@ -147,8 +190,8 @@ export default function UploadDocumentsPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <UploadCard title="สำเนาบัตรประชาชน" icon={<Description className="text-blue-500 text-4xl mb-2" />} preview={idCardPreview} inputRef={idCardInputRef} onUpload={() => idCardInputRef.current?.click()} onChange={(e) => handleFileChange(e, setIdCardFile, setIdCardPreview)} onRemove={() => removeFile(setIdCardFile, setIdCardPreview, idCardInputRef)} description="รองรับไฟล์ .jpg, .png" />
-          <UploadCard title="สำเนาทะเบียนรถยนต์" icon={<DirectionsCar className="text-blue-500 text-4xl mb-2" />} preview={carRegPreview} inputRef={carRegInputRef} onUpload={() => carRegInputRef.current?.click()} onChange={(e) => handleFileChange(e, setCarRegFile, setCarRegPreview)} onRemove={() => removeFile(setCarRegFile, setCarRegPreview, carRegInputRef)} description="หน้าที่มีชื่อเจ้าของรถ" />
+          <UploadCard title="สำเนาบัตรประชาชน" icon={<Description className="text-blue-500 text-4xl mb-2" />} preview={idCardPreview} inputRef={idCardInputRef} onUpload={() => idCardInputRef.current?.click()} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFileChange(e, setIdCardFile, setIdCardPreview)} onRemove={() => removeFile(setIdCardFile, setIdCardPreview, idCardInputRef)} description="รองรับไฟล์ .jpg, .png" />
+          <UploadCard title="สำเนาทะเบียนรถยนต์" icon={<DirectionsCar className="text-blue-500 text-4xl mb-2" />} preview={carRegPreview} inputRef={carRegInputRef} onUpload={() => carRegInputRef.current?.click()} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFileChange(e, setCarRegFile, setCarRegPreview)} onRemove={() => removeFile(setCarRegFile, setCarRegPreview, carRegInputRef)} description="หน้าที่มีชื่อเจ้าของรถ" />
         </div>
 
         <div className="mt-10 flex justify-center">

@@ -1,8 +1,16 @@
-import React, { useState, useEffect, ChangeEvent, FormEvent } from "react";
+import React, { useState, useEffect, ChangeEvent } from "react";
 import { X, Shield, Car, FileText, Save, Copy, Check, User, Calendar, AlertCircle } from "lucide-react";
 import { Purchase, PaymentMethod, PurchaseStatus } from "../types";
 import { THAI_PROVINCES, addYearsToDate, formatDateForInput, getTodayString } from "../utils";
 import ImageUpload from "./ImageUpload";
+import api from "@/services/api";
+
+// Interface สำหรับข้อมูล Agent ที่ถูก Populate มา
+interface PopulatedAgent {
+    _id: string;
+    first_name: string;
+    last_name: string;
+}
 
 export interface EditFormState {
     status: PurchaseStatus;
@@ -106,6 +114,121 @@ const EditPolicyModal: React.FC<EditPolicyModalProps> = ({ isOpen, onClose, purc
             const reader = new FileReader();
             reader.onloadend = () => setForm(prev => ({ ...prev, [field]: reader.result as string }));
             reader.readAsDataURL(file);
+        }
+    };
+
+    // ✅ ฟังก์ชันใหม่สำหรับจัดการ Save + Detailed Notification
+    const handleSaveWithNotification = async () => {
+        try {
+            // 1. บันทึกข้อมูลลงฐานข้อมูล
+            await onSave(purchase._id, form);
+
+            // 2. ตรวจสอบการเปลี่ยนแปลงเพื่อสร้างข้อความแจ้งเตือน
+            let messageParts: string[] = [];
+            let type = "info";
+
+            // --- ตรวจสอบ Status (สำคัญที่สุด) ---
+            if (form.status !== purchase.status) {
+                if (form.status === 'active') {
+                    messageParts.push(`กรมธรรม์ของคุณได้รับการอนุมัติแล้ว`);
+                    type = "success";
+                } else if (form.status === 'rejected') {
+                    messageParts.push(`คำขอซื้อประกันถูกปฏิเสธเนื่องจาก: ${form.reject_reason}`);
+                    type = "warning";
+                } else if (form.status === 'pending_payment') {
+                    messageParts.push(`กรุณาชำระเงินสำหรับคำขอซื้อประกัน`);
+                    type = "warning";
+                } else {
+                    messageParts.push(`สถานะกรมธรรม์เปลี่ยนเป็น: ${form.status}`);
+                }
+            }
+
+            // --- ตรวจสอบรายละเอียดอื่นๆ (เปลี่ยนแปลงข้อมูล) ---
+            const detailChanges: string[] = [];
+
+            // 1. เลขกรมธรรม์
+            if (form.policy_number !== (purchase.policy_number || "")) {
+                detailChanges.push(`เลขกรมธรรม์เป็น ${form.policy_number}`);
+            }
+
+            // 2. รูปแบบการชำระเงิน
+            if (form.paymentMethod !== purchase.paymentMethod) {
+                const methodTH = form.paymentMethod === 'full' ? 'จ่ายเต็มจำนวน' : 'ผ่อนชำระ';
+                detailChanges.push(`รูปแบบชำระเงินเป็น ${methodTH}`);
+            }
+
+            // 3. ระยะเวลาคุ้มครอง
+            const oldStart = formatDateForInput(purchase.start_date);
+            const oldEnd = formatDateForInput(purchase.end_date);
+            if (form.start_date !== oldStart || form.end_date !== oldEnd) {
+                detailChanges.push(`ระยะเวลาคุ้มครองเป็น ${form.start_date} ถึง ${form.end_date}`);
+            }
+
+            // 4. ตรวจสอบรูปภาพเอกสาร
+            if (form.policyFile && form.policyFile !== (purchase.policyFile || "")) {
+                detailChanges.push("อัปโหลดไฟล์กรมธรรม์ฉบับจริง");
+            }
+            if (form.paymentSlipImage && form.paymentSlipImage !== (purchase.paymentSlipImage || "")) {
+                detailChanges.push("แก้ไขสลิปโอนเงิน");
+            }
+            if (form.citizenCardImage && form.citizenCardImage !== (purchase.citizenCardImage || "")) {
+                detailChanges.push("แก้ไขรูปบัตรประชาชน");
+            }
+            if (form.carRegistrationImage && form.carRegistrationImage !== (purchase.carRegistrationImage || "")) {
+                detailChanges.push("แก้ไขรูปเล่มทะเบียน");
+            }
+            if (form.installmentDocImage && form.installmentDocImage !== (purchase.installmentDocImage || "")) {
+                detailChanges.push("แก้ไขเอกสารผ่อนชำระ");
+            }
+            if (form.consentFormImage && form.consentFormImage !== (purchase.consentFormImage || "")) {
+                detailChanges.push("แก้ไขหนังสือยินยอม");
+            }
+
+            // --- รวมข้อความ ---
+            if (detailChanges.length > 0) {
+                if (messageParts.length > 0) {
+                    messageParts.push(`และมีการแก้ไข: ${detailChanges.join(", ")}`);
+                } else {
+                    messageParts.push(`มีการแก้ไขข้อมูลกรมธรรม์: ${detailChanges.join(", ")}`);
+                }
+            }
+
+            // ถ้าไม่มีการเปลี่ยนแปลงอะไรเลย ไม่ต้องส่ง Noti
+            if (messageParts.length === 0) return;
+
+            const finalMessage = messageParts.join(" ");
+
+            // --- ส่ง Notification ---
+            const customerId = purchase.customer_id?._id || purchase.customer_id;
+
+            console.log("Debug Agent ID:", purchase.agent_id);
+
+            // ✅ เตรียมชื่อ Agent (ผู้ส่ง) แบบ Type Safe
+            const agentData = purchase.agent_id as unknown as (string | PopulatedAgent);
+            
+            let agentName = "";
+
+            // ตรวจสอบว่าเป็น Object และมี field first_name หรือไม่
+            if (agentData && typeof agentData === 'object' && 'first_name' in agentData) {
+                agentName = `${agentData.first_name} ${agentData.last_name}`;
+            }
+
+            if (customerId) {
+                await api.post("/api/notifications", {
+                    recipientType: 'customer',
+                    recipientId: customerId,
+                    message: finalMessage,
+                    type: type, 
+                    sender: {
+                        name: agentName, 
+                        role: "agent"
+                    }
+                });
+                console.log(`Notification sent from agent (${agentName}) to customer:`, finalMessage);
+            }
+
+        } catch (error) {
+            console.error("Error saving or sending notification:", error);
         }
     };
 
@@ -273,7 +396,8 @@ const EditPolicyModal: React.FC<EditPolicyModalProps> = ({ isOpen, onClose, purc
 
                 <div className="p-5 bg-white border-t border-slate-100 flex justify-end gap-3 rounded-b-2xl">
                     <button onClick={onClose} className="px-6 py-2.5 text-sm font-semibold text-slate-600 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition shadow-sm active:scale-95">ยกเลิก</button>
-                    <button onClick={() => onSave(purchase._id, form)} className="px-6 py-2.5 text-sm font-semibold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition shadow-md shadow-indigo-200 flex items-center gap-2 active:scale-95"><Save className="w-4 h-4"/> บันทึกข้อมูล</button>
+                    {/* ✅ เรียกใช้ handleSaveWithNotification */}
+                    <button onClick={handleSaveWithNotification} className="px-6 py-2.5 text-sm font-semibold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition shadow-md shadow-indigo-200 flex items-center gap-2 active:scale-95"><Save className="w-4 h-4"/> บันทึกข้อมูล</button>
                 </div>
             </div>
         </div>
