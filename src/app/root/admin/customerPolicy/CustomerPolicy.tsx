@@ -119,13 +119,12 @@ export default function ManagePolicyPage() {
   const [searchPolicyNo, setSearchPolicyNo] = useState("");
   const [searchStatus, setSearchStatus] = useState("all");
   
-  // ✅ New Filters
-  const [sortOrder, setSortOrder] = useState("desc"); // desc = ใหม่ไปเก่า, asc = เก่าไปใหม่
+  // New Filters
+  const [sortOrder, setSortOrder] = useState("desc"); 
   const [filterCarBrand, setFilterCarBrand] = useState("");
   const [filterCarModel, setFilterCarModel] = useState("");
   const [filterCarSubModel, setFilterCarSubModel] = useState("");
 
-  // ✅ Filter Options (แยกจาก Edit Form)
   const [filterModelList, setFilterModelList] = useState<string[]>([]);
   const [filterSubModelList, setFilterSubModelList] = useState<string[]>([]);
 
@@ -138,7 +137,7 @@ export default function ManagePolicyPage() {
   const [isCopied, setIsCopied] = useState(false);
 
   // --- Edit Form State ---
-  const [brandOptions, setBrandOptions] = useState<string[]>([]); // ใช้ร่วมกันได้ (Brand List)
+  const [brandOptions, setBrandOptions] = useState<string[]>([]); 
   const [modelOptions, setModelOptions] = useState<string[]>([]);
   const [subModelOptions, setSubModelOptions] = useState<string[]>([]);
 
@@ -176,7 +175,6 @@ export default function ManagePolicyPage() {
       } catch (err) { console.error(err); }
   };
 
-  // Generic Fetch for dependency
   const fetchModelsGeneric = async (brand: string) => {
       if (!brand) return [];
       try { return (await api.get(`/car-master/models?brand=${encodeURIComponent(brand)}`)).data; } 
@@ -237,34 +235,29 @@ export default function ManagePolicyPage() {
       fetchBrands(); 
   }, []);
 
-  // ✅ Main Filtering Logic
   useEffect(() => {
     let temp = purchases;
 
-    // 1. Text Search
     if (searchName) temp = temp.filter((p) => (`${p.customer_id?.first_name} ${p.customer_id?.last_name}`).toLowerCase().includes(searchName.toLowerCase()));
     if (searchAgent) temp = temp.filter((p) => JSON.stringify(p.agent_id || "").toLowerCase().includes(searchAgent.toLowerCase()));
     if (searchCompany && searchCompany !== "ทั้งหมด") temp = temp.filter((p) => (p.carInsurance_id?.insuranceBrand || "") === searchCompany);
     if (searchPolicyNo) temp = temp.filter((p) => (p.policy_number || "").toLowerCase().includes(searchPolicyNo.toLowerCase()));
     
-    // 2. Status Filter
     if (searchStatus !== "all") {
         temp = temp.filter((p) => p.status === searchStatus);
     }
 
-    // 3. Car Filters (New)
     if (filterCarBrand) temp = temp.filter((p) => (p.car_id?.brand || "").trim() === filterCarBrand);
     if (filterCarModel) temp = temp.filter((p) => (p.car_id?.carModel || "").trim() === filterCarModel);
     if (filterCarSubModel) temp = temp.filter((p) => (p.car_id?.subModel || "").trim() === filterCarSubModel);
 
-    // 4. Sorting (New)
     temp.sort((a, b) => {
         const dateA = new Date(a.createdAt).getTime();
         const dateB = new Date(b.createdAt).getTime();
         return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
     });
 
-    setFilteredData([...temp]); // Spread to trigger re-render
+    setFilteredData([...temp]); 
     setCurrentPage(1); 
   }, [searchName, searchAgent, searchCompany, searchPolicyNo, searchStatus, sortOrder, filterCarBrand, filterCarModel, filterCarSubModel, purchases]);
 
@@ -307,7 +300,6 @@ export default function ManagePolicyPage() {
       paymentMethod: item.paymentMethod || "full"
     });
 
-    // Load options for Edit Modal
     if (currentBrand) {
         const models = await fetchModelsGeneric(currentBrand);
         setModelOptions(models);
@@ -323,92 +315,185 @@ export default function ManagePolicyPage() {
     setIsModalOpen(true);
   };
 
-  // ... (Keep handleCopyPolicy, handleFileChange, handleSave, Date Changes, Status Change, renderImageUpload as is) ...
   const handleCopyPolicy = () => { if (editForm.policy_number) { navigator.clipboard.writeText(editForm.policy_number); setIsCopied(true); setTimeout(() => setIsCopied(false), 2000); } };
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>, field: keyof typeof editForm) => { const file = e.target.files?.[0]; if (file) { const reader = new FileReader(); reader.onloadend = () => { setEditForm((prev) => ({ ...prev, [field]: reader.result as string })); }; reader.readAsDataURL(file); } };
-  const handleSave = async () => {
+  
+  // ✅ Function บันทึกและส่ง Notification
+const handleSave = async () => {
     if (!selectedItem) return;
 
     try {
-      // 1. บันทึกข้อมูลกรมธรรม์ตามปกติ
       await api.put(`/purchase/admin/${selectedItem._id}`, { ...editForm });
 
       // ============================================
-      // 🟢 เริ่มส่วนระบบแจ้งเตือน (Notification Logic)
+      // 🟢 Logic ตรวจสอบการแก้ไขและกำหนดสีแจ้งเตือน
       // ============================================
+      const changes: string[] = [];
+      let hasAddition = false; // ตัวแปรเช็คว่ามีการเพิ่มข้อมูลใหม่ไหม
+      let hasEdit = false;     // ตัวแปรเช็คว่ามีการแก้ไขไหม
+
+      const getStatusLabel = (s: string) => {
+        const map: Record<string, string> = {
+          'pending': 'รอตรวจสอบ', 'pending_payment': 'รอชำระเงิน',
+          'active': 'คุ้มครองแล้ว', 'expired': 'หมดอายุ', 'rejected': 'ปฏิเสธ'
+        };
+        return map[s] || s;
+      };
+
+      // ฟังก์ชันเช็ค Field ทั่วไป
+      const checkField = (label: string, oldVal: any, newVal: any) => {
+        const o = String(oldVal || "").trim();
+        const n = String(newVal || "").trim();
+        
+        if (o !== n) {
+            // ถ้าค่าเดิมว่าง แล้วค่าใหม่มีข้อมูล = การเพิ่ม
+            if (o === "" && n !== "") {
+                changes.push(`เพิ่ม${label} ("${n}")`);
+                hasAddition = true;
+            } else {
+                changes.push(`แก้ไข${label} (จาก "${o || '-'}" เป็น "${n || '-'}")`);
+                hasEdit = true;
+            }
+        }
+      };
+
+      // ฟังก์ชันเช็ครูปภาพ
+      const checkImage = (label: string, oldImg: string | undefined, newImg: string) => {
+        if (newImg && newImg !== (oldImg || "")) {
+           if (!oldImg) {
+             changes.push(`เพิ่มรูปภาพ (${label})`);
+             hasAddition = true;
+           } else {
+             if (label === "หลักฐานการโอนเงิน") changes.push(`เปลี่ยนรูปภาพการชำระ`);
+             else changes.push(`แก้ไขรูปภาพ (${label})`);
+             
+             hasEdit = true;
+           }
+        }
+      };
+
+      // --- เริ่มเปรียบเทียบ ---
+      checkField("ชื่อลูกค้า", selectedItem.customer_id?.first_name, editForm.customer_first_name);
+      checkField("นามสกุล", selectedItem.customer_id?.last_name, editForm.customer_last_name);
+      checkField("บริษัทประกัน", selectedItem.carInsurance_id?.insuranceBrand, editForm.insurance_brand);
+      checkField("ชั้นประกัน", selectedItem.carInsurance_id?.level, editForm.insurance_level);
       
-      // ดึง ID ลูกค้าและตัวแทน (เช็ค type เพราะบางทีมาเป็น object บางทีเป็น string)
-      const customerId = typeof selectedItem.customer_id === 'object' ? selectedItem.customer_id._id : selectedItem.customer_id;
-      const agentId = typeof selectedItem.agent_id === 'object' ? selectedItem.agent_id._id : selectedItem.agent_id;
+      checkField("ยี่ห้อรถ", selectedItem.car_id?.brand, editForm.car_brand);
+      checkField("รุ่นรถ", selectedItem.car_id?.carModel || selectedItem.car_id?.model, editForm.car_model);
+      checkField("รุ่นย่อย", selectedItem.car_id?.subModel || selectedItem.car_id?.sub_model, editForm.car_submodel);
+      checkField("ปีรถ", selectedItem.car_id?.year, editForm.car_year);
+      checkField("สีรถ", selectedItem.car_id?.color, editForm.car_color);
+      checkField("ทะเบียน", selectedItem.car_id?.registration, editForm.car_registration);
+      checkField("จังหวัด", selectedItem.car_id?.province, editForm.car_province);
+      
+      // เลขกรมธรรม์
+      if (selectedItem.policy_number !== editForm.policy_number) {
+        const oldP = selectedItem.policy_number || "";
+        const newP = editForm.policy_number || "";
+        if (oldP === "" && newP !== "") {
+            changes.push(`เพิ่มเลขกรมธรรม์ ("${newP}")`);
+            hasAddition = true;
+        } else {
+            changes.push(`แก้ไขเลขกรมธรรม์ (จาก "${oldP || '-'}" เป็น "${newP || '-'}")`);
+            hasEdit = true;
+        }
+      }
+
+      // สถานะ
+      if (selectedItem.status !== editForm.status) {
+        changes.push(`แก้ไขสถานะกรมธรรม์ (จาก "${getStatusLabel(selectedItem.status)}" เป็น "${getStatusLabel(editForm.status)}")`);
+        // การเปลี่ยนสถานะถือเป็นการแก้ไขที่สำคัญ (จะไปเช็คสีด้านล่างอีกที)
+      }
+
+      // รูปภาพ
+      checkImage("บัตรประชาชน", selectedItem.citizenCardImage, editForm.citizenCardImage);
+      checkImage("ทะเบียนรถ", selectedItem.carRegistrationImage, editForm.carRegistrationImage);
+      checkImage("หลักฐานการโอนเงิน", selectedItem.paymentSlipImage, editForm.paymentSlipImage);
+      checkImage("เอกสารการผ่อน", selectedItem.installmentDocImage, editForm.installmentDocImage);
+      checkImage("หนังสือยินยอม", selectedItem.consentFormImage, editForm.consentFormImage);
+      checkImage("ไฟล์กรมธรรม์", selectedItem.policyFile, editForm.policyFile);
+
+      // --- สรุปข้อความและกำหนดสี (Type) ---
       const carReg = editForm.car_registration || "ไม่ระบุทะเบียน";
+      let message = "";
+      let type = 'info'; // ค่าเริ่มต้น: สีฟ้า (info)
 
-      // กำหนดข้อความแจ้งเตือนตามสถานะ
-      let message = `มีการแก้ไขข้อมูลกรมธรรม์ รถทะเบียน ${carReg}`;
-      let type = 'info'; // info, success, warning
+      if (changes.length > 0) {
+        message = `รายการอัปเดต กรมธรรม์ทะเบียน ${carReg}:\n- ${changes.join('\n- ')}`;
+      } else {
+        message = `ยืนยันข้อมูลกรมธรรม์ ทะเบียน ${carReg} (ไม่มีการเปลี่ยนแปลง)`;
+      }
 
-      // กรณีเปลี่ยนสถานะเป็น Active (อนุมัติ)
-      if (editForm.status === 'active' && selectedItem.status !== 'active') {
-          message = `กรมธรรม์รถทะเบียน ${carReg} ได้รับการอนุมัติแล้ว ความคุ้มครองเริ่ม ${formatDisplayDate(editForm.start_date)}`;
+      // 🔴 ลำดับความสำคัญของสี (Priority)
+      // 1. สถานะปฏิเสธ -> สีแดง (warning)
+      if (editForm.status === 'rejected') {
+          type = 'warning';
+      }
+      // 2. สถานะคุ้มครอง/Active -> สีเขียว (success)
+      else if (editForm.status === 'active' && selectedItem.status !== 'active') {
           type = 'success';
       }
-      // กรณีเปลี่ยนสถานะเป็น Rejected (ปฏิเสธ)
-      else if (editForm.status === 'rejected' && selectedItem.status !== 'rejected') {
-          message = `กรมธรรม์รถทะเบียน ${carReg} ถูกปฏิเสธเนื่องจาก: ${editForm.reject_reason || "ข้อมูลไม่ครบถ้วน"}`;
-          type = 'warning';
-      }
-      // กรณีเปลี่ยนสถานะเป็น Pending Payment
-      else if (editForm.status === 'pending_payment' && selectedItem.status !== 'pending_payment') {
-          message = `กรุณาชำระเงินสำหรับกรมธรรม์รถทะเบียน ${carReg}`;
-          type = 'warning';
-      }
-      // กรณีใกล้หมดอายุ (Expired)
+      // 3. สถานะหมดอายุ -> สีแดง (warning)
       else if (editForm.status === 'expired') {
-         message = `กรมธรรม์รถทะเบียน ${carReg} หมดอายุแล้ว`;
-         type = 'warning';
+          type = 'warning';
+      }
+      // 4. ถ้ามีการ "เพิ่ม" ข้อมูล/รูปภาพ -> สีม่วง (primary)
+      else if (hasAddition) {
+          type = 'primary';
+      }
+      // 5. ถ้าเป็นการ "แก้ไข" ข้อมูล/รูปภาพ -> สีฟ้า (info) - (เป็นค่า Default อยู่แล้ว)
+      else if (hasEdit) {
+          type = 'info';
       }
 
-      // --- ส่งแจ้งเตือนให้ Customer ---
+      // --- เตรียมข้อมูลผู้ส่ง ---
+      let senderData = { name: "Admin", role: "admin" };
+      const storedUser = localStorage.getItem('userData');
+      if (storedUser && storedUser !== "undefined") {
+        try {
+            const user = JSON.parse(storedUser);
+            senderData.name = user.first_name || user.username || "Admin";
+        } catch(e) {}
+      }
+
+      // --- ส่ง API ---
+      const notificationPayload = {
+          message,
+          type, // ส่งสีที่คำนวณได้ไป
+          relatedPurchaseId: selectedItem._id,
+          sender: senderData
+      };
+
+      const customerId = typeof selectedItem.customer_id === 'object' ? selectedItem.customer_id._id : selectedItem.customer_id;
+      const agentId = typeof selectedItem.agent_id === 'object' ? selectedItem.agent_id._id : selectedItem.agent_id;
+
       if (customerId) {
-        await api.post('/api/notifications', {
-          recipientId: customerId,
-          recipientType: 'customer',
-          message: message,
-          type: type,
-          relatedPurchaseId: selectedItem._id
-        });
+        await api.post('/api/notifications', { ...notificationPayload, recipientId: customerId, recipientType: 'customer' });
       }
 
-      // --- ส่งแจ้งเตือนให้ Agent (ถ้ามี) ---
       if (agentId) {
-        // อาจจะปรับข้อความให้ Agent นิดหน่อย
-        const agentMessage = `(ลูกค้า: ${editForm.customer_first_name}) ${message}`;
-        await api.post('/api/notifications', {
-          recipientId: agentId,
-          recipientType: 'agent',
-          message: agentMessage, // หรือใช้ message เดียวกัน
-          type: type,
-          relatedPurchaseId: selectedItem._id
-        });
+        // เพิ่ม prefix ชื่อลูกค้าให้ Agent
+        const agentMsg = `(ลูกค้า: ${editForm.customer_first_name}) ${message}`;
+        await api.post('/api/notifications', { ...notificationPayload, message: agentMsg, recipientId: agentId, recipientType: 'agent' });
       }
-      
-      // ============================================
-      // 🔴 จบส่วนระบบแจ้งเตือน
-      // ============================================
 
-      alert("บันทึกข้อมูลและส่งการแจ้งเตือนสำเร็จ");
+      window.dispatchEvent(new Event('refreshNotification'));
+      alert("บันทึกข้อมูลและส่งการแจ้งเตือนเรียบร้อยแล้ว");
       setIsModalOpen(false);
-      fetchData(); // โหลดข้อมูลใหม่
+      fetchData();
 
     } catch (error) {
       console.error("Save error:", error);
       alert("เกิดข้อผิดพลาดในการบันทึก");
     }
   };
+
   const handleStartDateChange = (e: ChangeEvent<HTMLInputElement>) => { const newStart = e.target.value; const newEnd = addYearsToDate(newStart, 1); setEditForm({ ...editForm, start_date: newStart, end_date: newEnd }); };
   const handleEndDateChange = (e: ChangeEvent<HTMLInputElement>) => { const newEnd = e.target.value; const newStart = addYearsToDate(newEnd, -1); setEditForm({ ...editForm, start_date: newStart, end_date: newEnd }); };
   const handleStatusChange = (e: ChangeEvent<HTMLSelectElement>) => { const newStatus = e.target.value; let updates: any = { status: newStatus }; if (newStatus === 'active') { if(!editForm.start_date) { const today = getTodayString(); updates.start_date = today; updates.end_date = addYearsToDate(today, 1); } } setEditForm({ ...editForm, ...updates }); };
 
   const renderImageUpload = (label: string, fieldName: keyof typeof editForm, currentImage: string) => {
+    // ... (Your existing renderImageUpload code remains exactly the same, hidden for brevity) ...
     const isPdf = currentImage?.startsWith('data:application/pdf') || currentImage?.toLowerCase().endsWith('.pdf');
     const getDownloadFilename = () => `${fieldName}_${Date.now()}.${isPdf ? "pdf" : "png"}`;
     const handleMainDownload = (e: React.MouseEvent) => { e.stopPropagation(); const link = document.createElement("a"); link.href = currentImage; link.download = getDownloadFilename(); document.body.appendChild(link); link.click(); document.body.removeChild(link); };
@@ -432,16 +517,12 @@ export default function ManagePolicyPage() {
         .custom-date-input[value=""] { color: #9ca3af; }
         .custom-date-input::-webkit-calendar-picker-indicator { position: absolute; right: 0.5rem; z-index: 10; cursor: pointer; }
       `}</style>
-
       <h1 className="text-2xl font-bold mb-6 text-gray-800">จัดการรายการกรมธรรม์</h1>
-
-      {/* ✅ FILTER SECTION */}
+      {/* ... (Filter UI Code เหมือนเดิม) ... */}
       <div className="bg-white p-5 rounded-lg shadow-md mb-6 space-y-4">
          <div className="flex items-center gap-2 text-gray-700 font-semibold border-b pb-2 mb-2">
              <Filter className="w-4 h-4"/> ตัวกรองข้อมูล
          </div>
-         
-         {/* Row 1: Basic Filters */}
          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
              <div><label className="text-xs text-gray-500 mb-1 block">ชื่อลูกค้า</label><div className="relative"><input type="text" className="w-full border rounded p-2 pl-8 outline-none text-sm" placeholder="ค้นหาชื่อ..." value={searchName} onChange={(e) => setSearchName(e.target.value)} /><Search className="w-4 h-4 absolute left-2.5 top-2.5 text-gray-400" /></div></div>
              <div><label className="text-xs text-gray-500 mb-1 block">ตัวแทน</label><input type="text" className="w-full border rounded p-2 outline-none text-sm" placeholder="ค้นหาตัวแทน..." value={searchAgent} onChange={(e) => setSearchAgent(e.target.value)} /></div>
@@ -449,10 +530,7 @@ export default function ManagePolicyPage() {
              <div><label className="text-xs text-gray-500 mb-1 block">บริษัทประกัน</label><select className="w-full border rounded p-2 bg-white outline-none text-sm" value={searchCompany} onChange={(e) => setSearchCompany(e.target.value)}>{INSURANCE_COMPANIES.map((c, i) => (<option key={i} value={c}>{c}</option>))}</select></div>
              <div><label className="text-xs text-gray-500 mb-1 block">สถานะ</label><select className="w-full border rounded p-2 bg-white outline-none text-sm" value={searchStatus} onChange={(e) => setSearchStatus(e.target.value)}>{FILTER_STATUSES.map((status, i) => (<option key={i} value={status.value}>{status.label}</option>))}</select></div>
          </div>
-
-         {/* Row 2: Car Filters & Sorting */}
          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2 border-t border-dashed">
-             {/* ✅ Car Brand Filter */}
              <div>
                 <label className="text-xs text-gray-500 mb-1 block">ยี่ห้อรถ (Filter)</label>
                 <select className="w-full border rounded p-2 bg-white outline-none text-sm" value={filterCarBrand} onChange={handleFilterBrandChange}>
@@ -460,7 +538,6 @@ export default function ManagePolicyPage() {
                     {brandOptions.map((b, i) => <option key={i} value={b}>{b}</option>)}
                 </select>
              </div>
-             {/* ✅ Car Model Filter */}
              <div>
                 <label className="text-xs text-gray-500 mb-1 block">รุ่นรถ (Filter)</label>
                 <select className="w-full border rounded p-2 bg-white outline-none text-sm disabled:bg-gray-100" value={filterCarModel} onChange={handleFilterModelChange} disabled={!filterCarBrand}>
@@ -468,7 +545,6 @@ export default function ManagePolicyPage() {
                     {filterModelList.map((m, i) => <option key={i} value={m}>{m}</option>)}
                 </select>
              </div>
-             {/* ✅ Car SubModel Filter */}
              <div>
                 <label className="text-xs text-gray-500 mb-1 block">รุ่นย่อย (Filter)</label>
                 <select className="w-full border rounded p-2 bg-white outline-none text-sm disabled:bg-gray-100" value={filterCarSubModel} onChange={(e) => setFilterCarSubModel(e.target.value)} disabled={!filterCarModel}>
@@ -476,8 +552,6 @@ export default function ManagePolicyPage() {
                     {filterSubModelList.map((s, i) => <option key={i} value={s}>{s}</option>)}
                 </select>
              </div>
-             
-             {/* ✅ Sorting Dropdown */}
              <div className="flex flex-col">
                 <label className="text-xs text-gray-500 mb-1 block">เรียงลำดับวันที่</label>
                 <select className="w-full border rounded p-2 bg-white outline-none text-sm border-blue-200 text-blue-700 font-medium" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)}>
@@ -488,7 +562,6 @@ export default function ManagePolicyPage() {
          </div>
       </div>
 
-      {/* Table Section */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
@@ -513,13 +586,11 @@ export default function ManagePolicyPage() {
                         <td className="p-4 text-sm text-gray-600">{formatTableDate(item.createdAt)}</td>
                         <td className="p-4"><div className="font-medium text-gray-800">{item.customer_id?.first_name} {item.customer_id?.last_name}</div><div className="text-xs text-gray-500">{item.customer_id?.username || "Guest"}</div></td>
                         <td className="p-4 text-gray-600 text-sm">{typeof item.agent_id === 'object' ? `${item.agent_id?.first_name || '-'} ${item.agent_id?.last_name || ''}` : item.agent_id || "-"}</td>
-                        
                         <td className="p-4">
                             <div className="font-semibold text-gray-700">{item.car_id?.brand || "-"} {item.car_id?.carModel || ""}</div>
                             {item.car_id?.subModel && (<div className="text-xs text-gray-500 mb-1 line-clamp-1" title={item.car_id?.subModel}>{item.car_id?.subModel}</div>)}
                             {item.car_id?.year && (<span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded border border-gray-200">ปี {item.car_id?.year}</span>)}
                         </td>
-
                         <td className="p-4"><div className="font-semibold text-gray-700">{item.carInsurance_id?.insuranceBrand || "ไม่ระบุ"}</div><div className="text-xs text-gray-500 inline-block bg-gray-100 px-2 py-0.5 rounded mt-1">{item.carInsurance_id?.level || "-"}</div></td>
                         <td className="p-4 font-mono text-sm">{item.policy_number ? <span className="text-blue-600 font-medium">{item.policy_number}</span> : <span className="text-gray-400 italic">รออนุมัติ</span>}</td>
                         <td className="p-4"><span className={`px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap ${item.status === 'active' ? 'bg-green-100 text-green-700' : item.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : item.status === 'pending_payment' ? 'bg-orange-100 text-orange-700' : item.status === 'expired' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}`}>{item.status.replace('_', ' ')}</span></td>
@@ -543,9 +614,9 @@ export default function ManagePolicyPage() {
 
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8 overflow-y-auto flex-grow">
               <div className="space-y-6">
-                  
                   <div className="space-y-4">
                       <h3 className="font-semibold text-gray-800 flex items-center gap-2 pb-2 border-b"><Edit className="w-4 h-4 text-blue-600"/> แก้ไขข้อมูลผู้ซื้อและการประกัน</h3>
+                      {/* ... (Your existing Input fields) ... */}
                       <div className="grid grid-cols-2 gap-2">
                           <div><label className="text-xs text-gray-500">ชื่อจริง</label><input type="text" className="w-full border rounded p-1.5 text-sm outline-none" value={editForm.customer_first_name} onChange={(e) => setEditForm({...editForm, customer_first_name: e.target.value})} /></div>
                           <div><label className="text-xs text-gray-500">นามสกุล</label><input type="text" className="w-full border rounded p-1.5 text-sm outline-none" value={editForm.customer_last_name} onChange={(e) => setEditForm({...editForm, customer_last_name: e.target.value})} /></div>
@@ -554,53 +625,23 @@ export default function ManagePolicyPage() {
                           <div><label className="text-xs text-gray-500">บริษัทประกัน</label><select className="w-full border rounded p-1.5 text-sm bg-white outline-none" value={editForm.insurance_brand} onChange={(e) => setEditForm({...editForm, insurance_brand: e.target.value})}>{INSURANCE_COMPANIES.filter(c => c !== "ทั้งหมด").map(c => (<option key={c} value={c}>{c}</option>))}</select></div>
                           <div><label className="text-xs text-gray-500">ชั้นประกัน</label><select className="w-full border rounded p-1.5 text-sm bg-white outline-none" value={editForm.insurance_level} onChange={(e) => setEditForm({...editForm, insurance_level: e.target.value})}>{INSURANCE_LEVELS.map(level => (<option key={level} value={level}>{level}</option>))}</select></div>
                       </div>
-                      
                       <div className="grid grid-cols-2 gap-2">
-                          <div>
-                              <label className="text-xs text-gray-500">ยี่ห้อรถ</label>
-                              <select className="w-full border rounded p-1.5 text-sm bg-white outline-none" value={editForm.car_brand} onChange={handleEditBrandChange}>
-                                  <option value="">เลือกยี่ห้อ</option>
-                                  {brandOptions.map((b, i) => <option key={i} value={b}>{b}</option>)}
-                              </select>
-                          </div>
-                          <div>
-                              <label className="text-xs text-gray-500">รุ่นรถ</label>
-                              <select className="w-full border rounded p-1.5 text-sm bg-white outline-none disabled:bg-gray-100" value={editForm.car_model} onChange={handleEditModelChange} disabled={!editForm.car_brand}>
-                                  <option value="">เลือกรุ่น</option>
-                                  {modelOptions.map((m, i) => <option key={i} value={m}>{m}</option>)}
-                              </select>
-                          </div>
+                          <div><label className="text-xs text-gray-500">ยี่ห้อรถ</label><select className="w-full border rounded p-1.5 text-sm bg-white outline-none" value={editForm.car_brand} onChange={handleEditBrandChange}><option value="">เลือกยี่ห้อ</option>{brandOptions.map((b, i) => <option key={i} value={b}>{b}</option>)}</select></div>
+                          <div><label className="text-xs text-gray-500">รุ่นรถ</label><select className="w-full border rounded p-1.5 text-sm bg-white outline-none disabled:bg-gray-100" value={editForm.car_model} onChange={handleEditModelChange} disabled={!editForm.car_brand}><option value="">เลือกรุ่น</option>{modelOptions.map((m, i) => <option key={i} value={m}>{m}</option>)}</select></div>
                       </div>
-
                       <div className="grid grid-cols-1 gap-2">
-                          <div>
-                              <label className="text-xs text-gray-500">รุ่นย่อย</label>
-                              <select className="w-full border rounded p-1.5 text-sm bg-white outline-none disabled:bg-gray-100" value={editForm.car_submodel} onChange={(e) => setEditForm({...editForm, car_submodel: e.target.value})} disabled={!editForm.car_model}>
-                                  <option value="">เลือกรุ่นย่อย</option>
-                                  {subModelOptions.map((s, i) => <option key={i} value={s}>{s}</option>)}
-                              </select>
-                          </div>
+                          <div><label className="text-xs text-gray-500">รุ่นย่อย</label><select className="w-full border rounded p-1.5 text-sm bg-white outline-none disabled:bg-gray-100" value={editForm.car_submodel} onChange={(e) => setEditForm({...editForm, car_submodel: e.target.value})} disabled={!editForm.car_model}><option value="">เลือกรุ่นย่อย</option>{subModelOptions.map((s, i) => <option key={i} value={s}>{s}</option>)}</select></div>
                       </div>
-                      
                       <div className="grid grid-cols-2 gap-2">
                           <div><label className="text-xs text-gray-500">ปีรถ (ค.ศ.)</label><input type="text" className="w-full border rounded p-1.5 text-sm outline-none" value={editForm.car_year} onChange={(e) => setEditForm({...editForm, car_year: e.target.value})} placeholder="เช่น 2023" /></div>
                           <div><label className="text-xs text-gray-500">สีรถ</label><input type="text" className="w-full border rounded p-1.5 text-sm outline-none" value={editForm.car_color} onChange={(e) => setEditForm({...editForm, car_color: e.target.value})} placeholder="เช่น ขาว" /></div>
                       </div>
-
                       <div className="grid grid-cols-2 gap-2">
                           <div><label className="text-xs text-gray-500">ทะเบียนรถ</label><input type="text" className="w-full border rounded p-1.5 text-sm outline-none" value={editForm.car_registration} onChange={(e) => setEditForm({...editForm, car_registration: e.target.value})} /></div>
-                          <div>
-                             <label className="text-xs text-gray-500">จังหวัด</label>
-                             <select className="w-full border rounded p-1.5 text-sm bg-white outline-none" value={editForm.car_province} onChange={(e) => setEditForm({...editForm, car_province: e.target.value})}>
-                                 <option value="">เลือกจังหวัด</option>
-                                 {THAI_PROVINCES.map((province) => (<option key={province} value={province}>{province}</option>))}
-                             </select>
-                          </div>
+                          <div><label className="text-xs text-gray-500">จังหวัด</label><select className="w-full border rounded p-1.5 text-sm bg-white outline-none" value={editForm.car_province} onChange={(e) => setEditForm({...editForm, car_province: e.target.value})}><option value="">เลือกจังหวัด</option>{THAI_PROVINCES.map((province) => (<option key={province} value={province}>{province}</option>))}</select></div>
                       </div>
                   </div>
-
                   <hr className="border-gray-200"/>
-
                   <div><label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2"><CreditCard className="w-4 h-4"/> รูปแบบการชำระเงิน</label><select value={editForm.paymentMethod} onChange={(e) => setEditForm({...editForm, paymentMethod: e.target.value})} className="w-full border-gray-300 rounded-lg shadow-sm p-2.5 bg-white outline-none"><option value="full">จ่ายเต็ม (Full Payment)</option><option value="installment">ผ่อนชำระ (Installment)</option></select></div>
                   <hr className="border-gray-200"/>
                   <div><label className="block text-sm font-semibold text-gray-700 mb-2">สถานะกรมธรรม์</label><select value={editForm.status} onChange={handleStatusChange} className="w-full border-gray-300 rounded-lg shadow-sm p-2.5 bg-white outline-none"><option value="pending">Pending (รอตรวจสอบ)</option><option value="pending_payment">Pending Payment (รอชำระเงิน)</option><option value="active">Active (คุ้มครองแล้ว)</option><option value="expired">Expired (หมดอายุ)</option><option value="rejected">Rejected (ปฏิเสธ)</option></select></div>

@@ -21,7 +21,7 @@ interface AgentData {
   verification_status: string;
 }
 
-// Type สำหรับ Response ของ Notification API (ตาม Controller ที่ทำไว้)
+// Type สำหรับ Response ของ Notification API
 interface NotificationResponse {
   success: boolean;
   unreadCount: number;
@@ -48,7 +48,7 @@ export default function MenuAgent({ activePage }: AdminHeaderProps) {
   
   // State
   const [displayName, setDisplayName] = useState("Agent");
-  const [unreadCount, setUnreadCount] = useState(0); // ✅ เพิ่ม State สำหรับนับแจ้งเตือน
+  const [unreadCount, setUnreadCount] = useState(0); 
 
   const logout = () => {
     localStorage.removeItem("token");
@@ -57,14 +57,35 @@ export default function MenuAgent({ activePage }: AdminHeaderProps) {
     window.location.assign("/agent/login");
   };
 
-  // ✅ Logic ตรวจสอบสถานะ + ดึง Notification
+  // ✅ ฟังก์ชันดึงจำนวนแจ้งเตือน (แยกออกมาเพื่อให้เรียกใช้ซ้ำได้)
+  const fetchUnreadCount = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      const decoded = jwtDecode<DecodedToken>(token);
+      if (decoded && decoded.id) {
+        // ใช้ decoded.id หรือ decoded.userId ตามโครงสร้าง Token ของคุณ
+        // จากรูป console log (id: ObjectId) น่าจะเป็น field 'id'
+        const res = await api.get<NotificationResponse>(`/api/notifications?userId=${decoded.id}`);
+        
+        if (res.data && typeof res.data.unreadCount === 'number') {
+          console.log("Unread Count Updated:", res.data.unreadCount); // Debug ดูค่า
+          setUnreadCount(res.data.unreadCount);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch notification count:", e);
+    }
+  };
+
+  // ✅ Logic ตรวจสอบสถานะ + Initial Load
   useEffect(() => {
     const initData = async () => {
       try {
         const token = localStorage.getItem("token");
         if (!token) return;
 
-        // Decode Token
         const decoded = jwtDecode<DecodedToken>(token);
         
         if (decoded && decoded.id) {
@@ -74,22 +95,10 @@ export default function MenuAgent({ activePage }: AdminHeaderProps) {
 
           if (agent.first_name) setDisplayName(agent.first_name);
 
-          // เช็ค Verification Status
           if (agent.verification_status === 'in_review' || agent.verification_status === 'rejected') {
             if (pathname !== '/agent/status') {
               router.replace('/agent/status');
             }
-          }
-
-          // 2. ✅ ดึงจำนวนแจ้งเตือนที่ยังไม่อ่าน
-          try {
-            const notifyRes = await api.get<NotificationResponse>(`/api/notifications?userId=${decoded.id}`);
-            if (notifyRes.data && typeof notifyRes.data.unreadCount === 'number') {
-              setUnreadCount(notifyRes.data.unreadCount);
-            }
-          } catch (notifyError) {
-            console.error("Failed to fetch notifications:", notifyError);
-            // ไม่ต้องทำอะไรถ้าดึงแจ้งเตือนพลาด ให้ User ใช้งานต่อได้
           }
         }
       } catch (error) {
@@ -98,10 +107,18 @@ export default function MenuAgent({ activePage }: AdminHeaderProps) {
     };
 
     initData();
-    
-    // Optional: ตั้ง Interval ให้ดึงข้อมูลใหม่ทุก 1 นาที เพื่อให้ Real-time ขึ้น
-    const interval = setInterval(initData, 60000);
-    return () => clearInterval(interval);
+    fetchUnreadCount(); // เรียกดึง Notification ครั้งแรก
+
+    // ตั้ง Interval เช็คทุก 1 นาที
+    const interval = setInterval(fetchUnreadCount, 60000);
+
+    // ✅ เพิ่ม Listener รอรับคำสั่ง refreshNotification จากหน้าอื่น
+    window.addEventListener('refreshNotification', fetchUnreadCount);
+
+    return () => {
+        clearInterval(interval);
+        window.removeEventListener('refreshNotification', fetchUnreadCount);
+    };
 
   }, [router, pathname]);
 
@@ -171,7 +188,7 @@ export default function MenuAgent({ activePage }: AdminHeaderProps) {
           </div>
 
         <div className=" flex items-center gap-5">
-            {/* ✅ Notification Section ปรับปรุงใหม่ */}
+            {/* ✅ Notification Section */}
             <Link href={'/agent/notification'} className={`relative w-9 h-9 flex items-center justify-center transition-colors rounded-full hover:bg-slate-100 ${
                   activePage === "notification"
                     ? 'text-blue-600 bg-blue-50'
