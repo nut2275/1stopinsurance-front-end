@@ -57,32 +57,44 @@ const LoginForm = () => {
   //   }
   // }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const res = await api.post("/customers/login", form);
-      if(!res.data) alert("username หรือ password ผิด")
-      // ✅ 1. ดึง token และข้อมูล customer ออกมา
-      const { token, customer } = res.data;
 
-      // เก็บ token
-      localStorage.setItem("token", token);
-      const customerId = customer._id || customer.id; 
-      if (customerId) {
-          localStorage.setItem("customerBuyId", customerId);
-          console.log("Saved Customer ID:", customerId);
+      // ตรวจสอบว่ามี data ส่งกลับมาหรือไม่ (ป้องกัน res.data เป็น null)
+      if (!res.data || !res.data.token) {
+         alert("Username หรือ Password ผิด");
+         return;
       }
 
-      /// ✅ 3. เก็บข้อมูล customer ใน localStorage ด้วย (สำหรับแสดงหน้า profile)
-      localStorage.setItem("customer", JSON.stringify(customer));
+      // ✅ 1. ดึง token และข้อมูล customer
+      const { token, customer } = res.data;
 
-      // ✅ 4. แจ้งเตือนและ redirect
-      alert(`ยินดีต้อนรับคุณ ${customer.first_name} ${customer.last_name}`);
-      // setMessage(`Login success ✅ Welcome ${decoded.username}`);
-      router.push("/customer/profile")
-    //   router.push("/profile");
-    } 
-    catch (err: unknown) {
+      // ✅ 2. เก็บ Token
+      localStorage.setItem("token", token);
+
+      // ✅ 3. เก็บข้อมูล Customer (สำคัญมาก! Navbar จะใช้ตัวนี้ถ้า Token มีปัญหา)
+      if (customer) {
+          // แปลงเป็น JSON string ก่อนเก็บ
+          localStorage.setItem("customer", JSON.stringify(customer));
+          
+          // (Optional) เก็บ ID แยกเผื่อใช้ที่อื่น
+          const customerId = customer._id || customer.id;
+          if (customerId) {
+              localStorage.setItem("customerBuyId", customerId);
+          }
+      }
+
+      // ✅ 4. แจ้งเตือนและ Redirect (ใช้ window.location เพื่อให้ Navbar อัปเดตทันที)
+      alert(`ยินดีต้อนรับคุณ ${customer?.first_name || 'ผู้ใช้งาน'}`);
+      
+      // ⚠️ เปลี่ยนจาก router.push เป็น window.location.assign
+      // เพื่อบังคับให้หน้าเว็บโหลดใหม่ และ Navbar (MenuLogined) อ่านค่าจาก LocalStorage ใหม่
+      window.location.assign("/customer/mainpage"); 
+
+    } catch (err: unknown) {
+      console.error("Login error:", err);
       const error = err as AxiosError<{ message: string }>;
       alert(error.response?.data?.message || "เกิดข้อผิดพลาดที่ server");
     }
