@@ -7,6 +7,7 @@ import { AxiosError } from "axios";
 import api from "@/services/api";
 import MenuLogin from "@/components/element/MenuLogin";
 
+// ✅ Interface สำหรับ Form State
 interface RegisterFormState {
   first_name: string;
   last_name: string;
@@ -24,9 +25,17 @@ interface RegisterFormState {
   [key: string]: string;
 }
 
+// ✅ Interface สำหรับ API Error
 interface ApiErrorResponse {
   message: string;
   error?: string;
+}
+
+// ✅ Interface สำหรับ Notification Error (เฉพาะกิจ)
+interface NotificationError {
+  response?: {
+    data?: any;
+  };
 }
 
 export default function RegisterAgentPage() {
@@ -105,7 +114,7 @@ export default function RegisterAgentPage() {
     }
   };
 
-  // ✅ แก้ไข: เพิ่ม Logic ส่ง Notification ในนี้
+  // ✅ handleSubmit
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (form.password !== form.passwordConfirm) {
@@ -116,26 +125,27 @@ export default function RegisterAgentPage() {
       if (isEdit) {
         alert("ระบบแก้ไขยังไม่เปิดใช้งานในตัวอย่างนี้");
       } else {
-        // 1. ส่งข้อมูลสมัครสมาชิก
+        // 1. ส่งข้อมูลสมัครสมาชิก (ใช้ api instance)
         await api.post("/agents/register", form);
 
         // 2. ✅ สร้าง Notification ส่งหา Admin
         try {
-            // ใช้รหัสนี้แทน 'ADMIN' (เป็นรหัส 0 ยาว 24 ตัว เพื่อหลอกระบบว่าเป็น ObjectId)
             const fakeAdminId = "000000000000000000000000"; 
 
+            // ใช้ api instance
             await api.post("/api/notifications", {
                 recipientType: 'admin',
-                recipientId: fakeAdminId,  // ✅ แก้ตรงนี้
+                recipientId: fakeAdminId, 
                 message: `มีตัวแทนใหม่สมัครสมาชิก: ${form.first_name} ${form.last_name}`,
-                type: 'info', // ✅ ลองเปลี่ยนเป็น 'info' ก่อน (เผื่อ backend ยังไม่รู้จัก 'primary')
+                type: 'info', 
                 sender: {
                     name: `${form.first_name} ${form.last_name}`,
-                    role: 'agent' // ✅ ลองเปลี่ยนเป็น 'agent' ไปก่อน (เผื่อ backend ยังไม่รู้จัก 'guest')
+                    role: 'agent' 
                 }
             });
-        } catch (notiError: any) {
-            // ✅ เพิ่มบรรทัดนี้ เพื่อดูว่า Backend ตอบว่าผิดตรงไหน
+        } catch (error) {
+            // Cast error เพื่อป้องกัน any
+            const notiError = error as NotificationError;
             console.log("Notification Error Detail:", notiError.response?.data);
         }
 
@@ -143,6 +153,7 @@ export default function RegisterAgentPage() {
         router.push("/agent/login");
       }
     } catch (error) {
+      // ใช้ AxiosError<ApiErrorResponse> เพื่อ Type Safety
       const err = error as AxiosError<ApiErrorResponse>;
       console.error(err);
 
