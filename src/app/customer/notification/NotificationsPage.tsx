@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react'; // ✅ 1. เพิ่ม useRef
+import { useState, useEffect, useRef } from 'react';
 import type { NextPage } from 'next';
 import { useRouter } from 'next/navigation';
 import { jwtDecode } from "jwt-decode"; 
-import api from "@/services/api";
+import api from "@/services/api"; // ✅ ใช้ API Service แทน Localhost
 
 // --- Icon Components ---
 const PlusIcon = ({ className }: { className?: string }) => (
@@ -28,6 +28,16 @@ const InfoIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+// ✅ เพิ่ม Interface สำหรับ Decoded Token เพื่อกำจัด any
+interface DecodedToken {
+  id?: string;
+  _id?: string;
+  userId?: string;
+  sub?: string;
+  role?: string;
+  [key: string]: unknown; // รองรับ field อื่นๆ
+}
+
 type NotifyItem = {
   _id: string;
   message: string;
@@ -42,7 +52,6 @@ const NotificationsPage: NextPage = () => {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  // ✅ 2. ใช้ useRef เก็บรายการ ID ที่ยังไม่อ่าน (เพื่อให้เข้าถึงได้ใน Cleanup function)
   const unreadIdsRef = useRef<string[]>([]);
 
   const getSenderPrefix = (sender?: NotifyItem['sender']) => {
@@ -55,46 +64,37 @@ const NotificationsPage: NextPage = () => {
     }
   };
 
-  // ฟังก์ชันกดอ่านรายตัว (ถ้า User อยากกดให้หายไปเดี๋ยวนั้น)
   const handleRead = async (id: string, isRead: boolean) => {
     if (isRead) return;
     try {
-      // อัปเดต UI ทันที
       setNotifications(prev => prev.map(n => n._id === id ? { ...n, isRead: true } : n));
-      // ส่ง API
       await api.put('/api/notifications/read-bulk', { notificationIds: [id] });
-      // บอก Navbar
       window.dispatchEvent(new Event('refreshNotification'));
     } catch (error) { console.error("Failed to mark read:", error); }
   };
 
-  // ✅ 3. อัปเดต Ref ทุกครั้งที่ State เปลี่ยน (จำไว้ว่าตอนนี้มีอะไรยังไม่อ่านบ้าง)
   useEffect(() => {
       unreadIdsRef.current = notifications
-          .filter(n => !n.isRead) // กรองเอาเฉพาะที่ยังไม่อ่าน
+          .filter(n => !n.isRead)
           .map(n => n._id);
   }, [notifications]);
 
-  // ✅ 4. ทำงานตอน "ออกจากหน้า" (Unmount) เท่านั้น
   useEffect(() => {
       return () => {
           const idsToMark = unreadIdsRef.current;
           
           if (idsToMark.length > 0) {
-              // ส่ง API แบบ Fire and Forget (ส่งไปเลยไม่ต้องรอ)
               api.put('/api/notifications/read-bulk', { notificationIds: idsToMark })
-                 .then(() => {
-                     // ส่ง Event บอก Navbar ให้ดึงเลขใหม่ (ซึ่งควรจะเป็น 0)
-                     if (typeof window !== 'undefined') {
-                         window.dispatchEvent(new Event('refreshNotification'));
-                     }
-                 })
-                 .catch(err => console.error("Error marking read on exit:", err));
+                  .then(() => {
+                      if (typeof window !== 'undefined') {
+                          window.dispatchEvent(new Event('refreshNotification'));
+                      }
+                  })
+                  .catch(err => console.error("Error marking read on exit:", err));
           }
       };
   }, []);
 
-  // ดึงข้อมูล
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
@@ -104,8 +104,9 @@ const NotificationsPage: NextPage = () => {
         const token = localStorage.getItem("token");
         if (token) {
             try {
-                const decoded: any = jwtDecode(token);
-                currentUserId = decoded.id || decoded._id || decoded.userId || decoded.sub;
+                // ✅ แก้ไข: ระบุ Generic Type ให้ jwtDecode
+                const decoded = jwtDecode<DecodedToken>(token);
+                currentUserId = decoded.id || decoded._id || decoded.userId || decoded.sub || "";
             } catch (e) { console.error("Token decode failed:", e); }
         }
 
@@ -114,8 +115,10 @@ const NotificationsPage: NextPage = () => {
             const storedCustomer = localStorage.getItem("customer");
             if (storedCustomer) {
                 try {
-                    const customerObj = JSON.parse(storedCustomer);
-                    currentUserId = customerObj._id || customerObj.id;
+                    // ✅ ใช้ unknown ก่อน cast เพื่อความปลอดภัย (Optional) หรือใช้ as any ถ้ายอมรับได้ในจุดนี้
+                    // แต่เพื่อให้ strict:
+                    const customerObj = JSON.parse(storedCustomer) as { _id?: string; id?: string };
+                    currentUserId = customerObj._id || customerObj.id || "";
                 } catch (e) { console.error("Parse customer failed:", e); }
             }
         }
@@ -125,7 +128,7 @@ const NotificationsPage: NextPage = () => {
             return;
         }
 
-        const res = await api.get(`/api/notifications?userId=${currentUserId}`);
+        const res = await api.get<{ data: NotifyItem[] }>(`/api/notifications?userId=${currentUserId}`);
         
         if (res.data && res.data.data) {
           setNotifications(res.data.data);
@@ -189,7 +192,6 @@ const NotificationsPage: NextPage = () => {
                     className={`notification ${note.type} ${!note.isRead ? 'unread' : ''}`}
                     onClick={() => handleRead(note._id, note.isRead)}
                 >
-                  {/* จุดแดงจะยังอยู่ จนกว่าจะคลิก หรือ ออกจากหน้านี้ */}
                   {!note.isRead && <div className="unread-indicator" title="กดเพื่ออ่าน"></div>}
 
                   {note.type === 'warning' && <WarningIcon className="h-8 w-8 text-red-600 flex-shrink-0"/>}

@@ -1,14 +1,18 @@
 "use client";
 
-import React, { useState, FormEvent, ChangeEvent, useEffect, use } from 'react';
+import React, { useState, FormEvent, ChangeEvent, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { Person, Email, Phone, Home, Cake, CloudUpload, CheckCircle } from '@mui/icons-material';
-import api from '@/services/api'; // ✅ เรียกใช้ api ที่คุณสร้างไว้
-import axios from 'axios'; // เอาไว้เช็ค Error type
-import { mutate } from "swr"; // ✅ เพิ่มบรรทัดนี้
+import api from '@/services/api';
+import axios from 'axios'; 
+import { mutate } from "swr";
 import { Customer } from '@/types/dataType';
-import { jwtDecode } from "jwt-decode";
+
+// ✅ สร้าง Interface สำหรับ Error Response
+interface ApiErrorResponse {
+  message: string;
+}
 
 export default function EditProfileForm() {
   const router = useRouter();
@@ -26,8 +30,7 @@ export default function EditProfileForm() {
     username: "",
     password: "",
     imgProfile_customer: "/fotos/noPrafile.jpg",
-  }
-);
+  });
 
   const [profilePreview, setProfilePreview] = useState<string>("/fotos/noPrafile.jpg");
   const [showModal, setShowModal] = useState<boolean>(false);
@@ -37,19 +40,19 @@ export default function EditProfileForm() {
       // 1. หา ID จาก URL
       const targetId = searchParams.get('_id');
       
-      if (!targetId) return; // ถ้าไม่มี ID ไม่ต้องทำอะไร
+      if (!targetId) return;
 
       try {
-        // 2. ยิง API ไปขอข้อมูล
-        const response = await api.get(`/customers/${targetId}`);
-        const apiData = response.data; // ข้อมูลที่ได้จาก Backend
+        // 2. ยิง API ไปขอข้อมูล (✅ ระบุ Type <Customer>)
+        const response = await api.get<Customer>(`/customers/${targetId}`);
+        const apiData = response.data;
 
-        // 3. เอาข้อมูลยัดใส่ State (เชื่อมตามชื่อตัวแปร)
+        // 3. เอาข้อมูลยัดใส่ State
         setFormData(prev => ({
-          ...prev,          // คงค่าเดิมไว้ก่อน (เผื่อบาง field ไม่มี)
-          ...apiData,       // ✅ ทับด้วยค่าจาก API (เพราะชื่อตรงกัน!)
+          ...prev,          
+          ...apiData,       
           
-          // ⚠️ ข้อควรระวัง: ข้อมูลวันที่จาก API มักเป็น String ต้องแปลงเป็น Date Object
+          // แปลงวันที่
           birth_date: apiData.birth_date ? new Date(apiData.birth_date) : new Date(),
           
           // ไม่เอา password มาโชว์
@@ -95,7 +98,7 @@ export default function EditProfileForm() {
     }
   };
 
-  // ✅ handleSubmit ที่ใช้ api instance
+  // ✅ handleSubmit
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
@@ -104,9 +107,7 @@ export default function EditProfileForm() {
     if (!targetId) return alert("ไม่พบ User ID");
 
     try {
-      // 2. ยิง API (ใช้ api.put แทน axios.put)
-      // หมายเหตุ: ต้องใส่ /api นำหน้า ถ้า Backend Route อยู่ที่ /api/customers
-      // เพราะ baseURL คือ http://localhost:5000 เฉยๆ
+      // 2. ยิง API (ใช้ api instance)
       const response = await api.put(`/customers/${targetId}`, {
         first_name: formData.first_name,
         last_name: formData.last_name,
@@ -122,10 +123,12 @@ export default function EditProfileForm() {
       }
 
     } catch (error) {
-      // 3. จัดการ Error
-      if (axios.isAxiosError(error)) {
-        console.error("Axios Error:", error.response?.data);
-        alert(error.response?.data?.message || "บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง");
+      // 3. จัดการ Error (✅ Type Safety)
+      if (axios.isAxiosError(error) && error.response) {
+        // Cast data เป็น ApiErrorResponse
+        const errorData = error.response.data as ApiErrorResponse;
+        console.error("Axios Error:", errorData);
+        alert(errorData.message || "บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง");
       } else {
         console.error("Unknown Error:", error);
         alert("เกิดข้อผิดพลาดในการเชื่อมต่อ Server");
@@ -136,8 +139,7 @@ export default function EditProfileForm() {
   const handleModalConfirm = () => {
     setShowModal(false);
     
-    // ✅ สั่งให้ SWR ไปโหลดข้อมูลใหม่ทันที (Re-validate)
-    // Key นี้ต้องตรงกับ useSWR("/customers/profile", ...) ในหน้า ProfilePage เป๊ะๆ
+    // ✅ สั่งให้ SWR ไปโหลดข้อมูลใหม่ทันที
     mutate("/customers/profile"); 
 
     router.push("/customer/profile");

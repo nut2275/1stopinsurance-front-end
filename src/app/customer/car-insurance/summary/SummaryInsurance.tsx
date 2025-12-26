@@ -5,8 +5,29 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import MenuLogined from "@/components/element/MenuLogined";
 import api from "@/services/api";
-import axios from "axios";
 
+// ✅ Interface สำหรับข้อมูลดิบจาก Backend/LocalStorage
+interface RawInsurancePlan {
+  _id?: string;
+  id?: string;
+  insuranceBrand?: string;
+  company?: string;
+  img?: string;
+  logoSrc?: string;
+  level?: string;
+  repairType?: string;
+  coverage?: string[];
+  premium?: number;
+  propertyDamageCoverage?: number;
+  coverageAmount?: number;
+  personalAccidentCoverageOut?: number;
+  personalAccidentCoverageIn?: number;
+  perAccidentCoverage?: number;
+  fireFloodCoverage?: number;
+  firstLossCoverage?: number;
+}
+
+// ✅ Interface สำหรับข้อมูลที่จะนำไปแสดงผล
 interface InsurancePlan {
   id: number | string;
   company: string;
@@ -39,9 +60,8 @@ export default function SummaryPage() {
   const planId = searchParams.get("id");
 
   const [agentProfile, setAgentProfile] = useState<AgentProfile | null>(null);
-  const [agentLoading, setAgentLoading] = useState(false);
-  const [agentError, setAgentError] = useState<string | null>(null);
-
+  const [agentLoading, setAgentLoading] = useState(false); // (ถ้าไม่ได้ใช้ สามารถลบออกได้)
+  const [agentError, setAgentError] = useState<string | null>(null); // (ถ้าไม่ได้ใช้ สามารถลบออกได้)
 
   const [selectedPlan, setSelectedPlan] = useState<InsurancePlan | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,7 +70,6 @@ export default function SummaryPage() {
   const [agentQuery, setAgentQuery] = useState("");
   const [agentResults, setAgentResults] = useState<AgentProfile[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
-
 
   const getBrandLogo = (brandName: string) => {
     if (!brandName) return "/fotos/Insur1.png";
@@ -64,33 +83,33 @@ export default function SummaryPage() {
   };
 
   useEffect(() => {
-    
     if (!planId) {
-        setLoading(false);
-        return;
+      setLoading(false);
+      return;
     }
     const storedData = localStorage.getItem("recommendedPlans");
     if (storedData) {
-      const allPlans = JSON.parse(storedData);
-      const foundRaw = allPlans.find((p: any) => String(p._id || p.id) === String(planId));
+      // ✅ แปลง Type เป็น RawInsurancePlan[] แทน any
+      const allPlans: RawInsurancePlan[] = JSON.parse(storedData);
+      const foundRaw = allPlans.find((p) => String(p._id || p.id) === String(planId));
 
       if (foundRaw) {
          const mappedPlan: InsurancePlan = {
-            id: foundRaw._id || foundRaw.id,
-            company: foundRaw.insuranceBrand || foundRaw.company || "ไม่ระบุ",
-            logoSrc: foundRaw.img || foundRaw.logoSrc || getBrandLogo(foundRaw.insuranceBrand),
-            level: foundRaw.level || "-",
-            repairType: foundRaw.repairType || "อู่",
-            features: foundRaw.coverage || [], 
-            premium: foundRaw.premium || 0,
-            installment: "ผ่อน 0% 10 เดือน",
-            coverageAmount: foundRaw.propertyDamageCoverage || foundRaw.coverageAmount || 0,
-            personalAccidentCoverageOut: foundRaw.personalAccidentCoverageOut || 0,
-            personalAccidentCoverageIn: foundRaw.personalAccidentCoverageIn || 0,
-            propertyDamageCoverage: foundRaw.propertyDamageCoverage || 0,
-            perAccidentCoverage: foundRaw.perAccidentCoverage || 0,
-            fireFloodCoverage: foundRaw.fireFloodCoverage || 0,
-            firstLossCoverage: foundRaw.firstLossCoverage || 0,
+           id: foundRaw._id || foundRaw.id || "",
+           company: foundRaw.insuranceBrand || foundRaw.company || "ไม่ระบุ",
+           logoSrc: foundRaw.img || foundRaw.logoSrc || getBrandLogo(foundRaw.insuranceBrand || ""),
+           level: foundRaw.level || "-",
+           repairType: foundRaw.repairType || "อู่",
+           features: foundRaw.coverage || [], 
+           premium: foundRaw.premium || 0,
+           installment: "ผ่อน 0% 10 เดือน",
+           coverageAmount: foundRaw.propertyDamageCoverage || foundRaw.coverageAmount || 0,
+           personalAccidentCoverageOut: foundRaw.personalAccidentCoverageOut || 0,
+           personalAccidentCoverageIn: foundRaw.personalAccidentCoverageIn || 0,
+           propertyDamageCoverage: foundRaw.propertyDamageCoverage || 0,
+           perAccidentCoverage: foundRaw.perAccidentCoverage || 0,
+           fireFloodCoverage: foundRaw.fireFloodCoverage || 0,
+           firstLossCoverage: foundRaw.firstLossCoverage || 0,
          };
          setSelectedPlan(mappedPlan);
       }
@@ -98,65 +117,35 @@ export default function SummaryPage() {
     setLoading(false);
   }, [planId]);
 
-//   useEffect(() => {
-//   if (!agentCode || agentCode.length < 3) {
-//     setAgentProfile(null);
-//     setAgentError(null);
-//     return;
-//   }
-
-//   const controller = new AbortController();
-
-//   const fetchAgent = async () => {
-//     try {
-//       setAgentLoading(true);
-//       setAgentError(null);
-
-//       const res = await api.get(`/agents/by-license/${agentCode}`, {
-//         signal: controller.signal, // ✅ axios รองรับ AbortController
-//       });
-
-//       setAgentProfile(res.data);
-//     } catch (err) {
-//       if (axios.isCancel(err)) return;
-
-//       setAgentProfile(null);
-//       setAgentError("ไม่พบข้อมูลตัวแทน");
-//     } finally {
-//       setAgentLoading(false);
-//     }
-//   };
-
-//   fetchAgent();
-//   return () => controller.abort();
-// }, [agentCode]);
-
-useEffect(() => {
-  if (agentQuery.length < 2) {
-    setAgentResults([]);
-    setShowDropdown(false);
-    return;
-  }
-
-  const controller = new AbortController();
-
-  const fetchAgents = async () => {
-    try {
-      const res = await api.get(`/agents/search?q=${agentQuery}`, {
-        signal: controller.signal,
-      });
-      setAgentResults(res.data);
-      setShowDropdown(true);
-    } catch (err) {
+  // ✅ Search Agent Effect
+  useEffect(() => {
+    if (agentQuery.length < 2) {
       setAgentResults([]);
+      setShowDropdown(false);
+      return;
     }
-  };
 
-  fetchAgents();
-  return () => controller.abort();
-}, [agentQuery]);
+    const controller = new AbortController();
 
+    const fetchAgents = async () => {
+      try {
+        // ใช้ api instance แทน axios
+        const res = await api.get<AgentProfile[]>(`/agents/search?q=${agentQuery}`, {
+          signal: controller.signal,
+        });
+        setAgentResults(res.data);
+        setShowDropdown(true);
+      } catch (err) {
+        // ถ้า error ไม่ใช่การ cancel ให้เคลียร์ผลลัพธ์
+        if ((err as any).name !== "CanceledError") { 
+            setAgentResults([]);
+        }
+      }
+    };
 
+    fetchAgents();
+    return () => controller.abort();
+  }, [agentQuery]);
 
   const handleProceed = () => {
       if (planId) {
@@ -230,7 +219,7 @@ useEffect(() => {
               />
 
               {showDropdown && agentResults.length > 0 && (
-                <div className="absolute z-20 mt-2 w-full bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                <div className="absolute z-20 mt-2 w-full bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto left-0">
                   {agentResults.map((agent) => (
                     <div
                       key={agent._id}
@@ -265,9 +254,8 @@ useEffect(() => {
               )}
             </div>
 
-
              {/* ================= AGENT CARD ================= */}
-              <div className="mt-4 mb-6">
+             <div className="mt-4 mb-6">
                 {agentLoading && (
                   <p className="text-gray-500 text-sm">กำลังค้นหาตัวแทน...</p>
                 )}

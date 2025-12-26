@@ -30,48 +30,54 @@ export default function CarInsuranceForm() {
     );
   }, []);
 
-  /* ===================== 1. Load Brands (เมื่อเลือกปี) ===================== */
+  /* ===================== 1. Load Brands (When year changes) ===================== */
   useEffect(() => {
-    // โหลด Brand ทั้งหมด (หรือจะกรองตาม year ก็ได้ถ้าต้องการ)
+    // Reset subsequent selections when year changes
+    setBrand("");
+    setModel("");
+    setVariant("");
+    setModels([]);
+    setVariants([]);
+
     const params = year ? { year } : {};
     
-    // ✅ แก้ไข URL ให้ตรงกับ server.ts ("/car-master")
+    // Use the correct endpoint matching server.ts and route definition
     api
       .get<string[]>("/car-master/brands", { params }) 
       .then((res) => setBrands(res.data))
       .catch((err) => console.error("Failed to load brands:", err));
   }, [year]);
 
-  /* ===================== 2. Load Models (เมื่อเลือกยี่ห้อ) ===================== */
+  /* ===================== 2. Load Models (When brand changes) ===================== */
   useEffect(() => {
     if (!brand) return;
 
+    // Reset subsequent selections when brand changes
     setModel("");
     setVariant("");
-    setModels([]);
     setVariants([]);
 
     const params: any = { brand };
     if (year) params.year = year;
 
-    // ✅ แก้ไข URL ให้ตรงกับ server.ts ("/car-master")
+    // Use the correct endpoint matching server.ts
     api
       .get<string[]>("/car-master/models", { params })
       .then((res) => setModels(res.data))
       .catch((err) => console.error("Failed to load models:", err));
   }, [brand, year]);
 
-  /* ===================== 3. Load SubModels (เมื่อเลือกรุ่น) ===================== */
+  /* ===================== 3. Load SubModels/Variants (When model changes) ===================== */
   useEffect(() => {
     if (!brand || !model) return;
 
+    // Reset variant when model changes
     setVariant("");
-    setVariants([]);
 
     const params: any = { brand, model };
     if (year) params.year = year;
 
-    // ✅ แก้ไข URL ให้ตรงกับ server.ts ("/car-master") และ route ("/sub-models")
+    // Use the correct endpoint matching server.ts and route definition (/sub-models)
     api
       .get<string[]>("/car-master/sub-models", { params }) 
       .then((res) => setVariants(res.data))
@@ -93,7 +99,7 @@ export default function CarInsuranceForm() {
       year,
       brand,
       model,
-      variant, 
+      variant, // Backend might expect 'subModel' but frontend sends 'variant' based on previous logic. Check API /plans if needed.
     };
 
     if (insuranceType !== "ไม่ระบุ") {
@@ -101,9 +107,10 @@ export default function CarInsuranceForm() {
     }
 
     try {
-      // อันนี้เรียก /api/plans ถูกต้องแล้ว (เพราะอยู่ใน CarInsuranceRate.routes.ts)
+      // Endpoint /api/plans is correct as per CarInsuranceRate.routes.ts
       const res = await api.get("/api/plans", { params });
 
+      // Save search criteria for next steps
       localStorage.setItem(
         "searchCriteria",
         JSON.stringify({
@@ -115,6 +122,7 @@ export default function CarInsuranceForm() {
         })
       );
 
+      // Save recommended plans result
       localStorage.setItem(
         "recommendedPlans",
         JSON.stringify(res.data)
@@ -123,6 +131,7 @@ export default function CarInsuranceForm() {
       router.push("/customer/car-insurance/insurance");
     } catch (err) {
       console.error(err);
+      // Clear old results on error and proceed to result page (likely to show 'no data found')
       localStorage.setItem("recommendedPlans", JSON.stringify([]));
       router.push("/customer/car-insurance/insurance");
     } finally {
@@ -147,7 +156,7 @@ export default function CarInsuranceForm() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-10">
-            {/* ประเภทประกัน */}
+            {/* 1. Insurance Type Selection */}
             <div>
               <label className="font-bold text-blue-600 flex items-center mb-5 text-lg">
                 <CheckCircle className="mr-2" fontSize="small" />
@@ -174,7 +183,7 @@ export default function CarInsuranceForm() {
               </div>
             </div>
 
-            {/* Selects */}
+            {/* 2. Car Details Selection Group */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {/* Year */}
               <select
@@ -192,7 +201,7 @@ export default function CarInsuranceForm() {
               <select
                 value={brand}
                 onChange={(e) => setBrand(e.target.value)}
-                disabled={!year}
+                disabled={!year} 
                 className="input"
               >
                 <option value="">เลือกยี่ห้อ</option>
@@ -214,7 +223,7 @@ export default function CarInsuranceForm() {
                 ))}
               </select>
 
-              {/* Variant */}
+              {/* Variant (SubModel) */}
               <select
                 value={variant}
                 onChange={(e) => setVariant(e.target.value)}

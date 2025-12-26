@@ -5,18 +5,39 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import MenuLogined from "@/components/element/MenuLogined";
 import { CloudUpload, Delete, Description, DirectionsCar } from "@mui/icons-material";
-import axios from "axios";
+import api from "@/services/api"; 
+
+// ✅ Interface สำหรับข้อมูลการค้นหา
+interface SearchCriteria {
+  carBrand?: string;
+  model?: string;
+  subModel?: string;
+  year?: string;
+  [key: string]: string | undefined;
+}
+
+// ✅ Interface สำหรับ Props ของ UploadCard
+interface UploadCardProps {
+  title: string;
+  icon: React.ReactNode;
+  preview: string | null;
+  // ✅ แก้ไข: รองรับ null เพราะ useRef เริ่มต้นเป็น null
+  inputRef: React.RefObject<HTMLInputElement | null>; 
+  onUpload: () => void;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onRemove: () => void;
+  description: string;
+}
 
 // Helper แปลง File เป็น Base64
-const toBase64 = (file: File) =>
-  new Promise<string>((resolve, reject) => {
+const toBase64 = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = () => resolve(reader.result as string);
     reader.onerror = (error) => reject(error);
   });
 
-// รายชื่อจังหวัดไทย
 const provinces = [
   "กรุงเทพมหานคร", "กระบี่", "กาญจนบุรี", "กาฬสินธุ์", "กำแพงเพชร",
   "ขอนแก่น", "จันทบุรี", "ฉะเชิงเทรา", "ชลบุรี", "ชัยนาท",
@@ -49,21 +70,31 @@ export default function UploadDocumentsPage() {
 
   const [registration, setRegistration] = useState("");
   const [color, setColor] = useState("");
-  const [province, setProvince] = useState(""); 
-  const [searchData, setSearchData] = useState<any>({});
+  const [province, setProvince] = useState("");
+  
+  const [searchData, setSearchData] = useState<SearchCriteria>({});
 
+  // ✅ useRef สามารถเป็น null ได้
   const idCardInputRef = useRef<HTMLInputElement>(null);
   const carRegInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const storedSearch = localStorage.getItem("searchCriteria");
     if (storedSearch) {
-      const parsedData = JSON.parse(storedSearch);
-      setSearchData(parsedData);
+      try {
+        const parsedData = JSON.parse(storedSearch);
+        setSearchData(parsedData);
+      } catch (error) {
+        console.error("Error parsing searchCriteria", error);
+      }
     }
   }, []);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setFile: any, setPreview: any) => {
+  const handleFileChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    setFile: React.Dispatch<React.SetStateAction<File | null>>,
+    setPreview: React.Dispatch<React.SetStateAction<string | null>>
+  ) => {
     const file = e.target.files?.[0];
     if (file) {
       setFile(file);
@@ -71,14 +102,18 @@ export default function UploadDocumentsPage() {
     }
   };
 
-  const removeFile = (setFile: any, setPreview: any, inputRef: any) => {
+  // ✅ แก้ไข: inputRef รับค่า null ได้
+  const removeFile = (
+    setFile: React.Dispatch<React.SetStateAction<File | null>>,
+    setPreview: React.Dispatch<React.SetStateAction<string | null>>,
+    inputRef: React.RefObject<HTMLInputElement | null> 
+  ) => {
     setFile(null);
     setPreview(null);
     if (inputRef.current) inputRef.current.value = "";
   };
 
-  // ✅ ฟังก์ชัน Submit ที่เพิ่มการแจ้งเตือน Agent
-const handleSubmit = async () => {
+  const handleSubmit = async () => {
     if (!idCardFile || !carRegFile || !registration || !color || !province) {
       alert("กรุณากรอกข้อมูลและอัปโหลดเอกสารให้ครบถ้วน");
       return;
@@ -88,16 +123,12 @@ const handleSubmit = async () => {
       const idCardBase64 = await toBase64(idCardFile);
       const carRegBase64 = await toBase64(carRegFile);
 
-      // ---------------------------------------------------------
-      // ✅ 1. ดึงชื่อลูกค้าจาก LocalStorage (ตาม Logic หน้า Login)
-      // ---------------------------------------------------------
-      let customerName = "ลูกค้า (ผ่านระบบ)"; // ค่าเริ่มต้น
+      let customerName = "ลูกค้า (ผ่านระบบ)";
       try {
-        const customerStr = localStorage.getItem("customer"); // ดึงก้อน JSON ออกมา
+        const customerStr = localStorage.getItem("customer");
         if (customerStr) {
-          const customerObj = JSON.parse(customerStr); // แปลงเป็น Object
+          const customerObj = JSON.parse(customerStr);
           if (customerObj && customerObj.first_name) {
-            // สร้างชื่อเต็ม
             customerName = `${customerObj.first_name} ${customerObj.last_name || ""}`.trim();
           } else if (customerObj && customerObj.username) {
             customerName = customerObj.username;
@@ -106,7 +137,6 @@ const handleSubmit = async () => {
       } catch (error) {
         console.error("Error parsing customer data:", error);
       }
-      // ---------------------------------------------------------
 
       const payload = {
         customer_id: localStorage.getItem("customerBuyId"),
@@ -123,30 +153,27 @@ const handleSubmit = async () => {
         carRegistrationImage: carRegBase64
       };
 
-      // 1. สร้างรายการสั่งซื้อ (Purchase)
-      const response = await axios.post("http://localhost:5000/purchase/insurance", payload);
+      const response = await api.post("/purchase/insurance", payload);
 
       if (response.status === 201) {
         const { agent, policy_number } = response.data;
 
-        // 2. สร้างการแจ้งเตือนส่งให้ Agent
         if (agent && agent.id) {
-            try {
-                await axios.post("http://localhost:5000/api/notifications", {
-                    recipientType: 'agent', 
-                    recipientId: agent.id,  
-                    // ✅ ใช้ตัวแปร customerName ที่ดึงมา
-                    message: `มีรายการสั่งซื้อใหม่: ${policy_number} (ทะเบียน ${registration} ${province}) รอการตรวจสอบ`,
-                    type: 'primary',
-                    sender: {
-                        name: customerName, 
-                        role: "customer"
-                    }
-                });
-                console.log("Notification sent to agent:", agent.id);
-            } catch (notiError) {
-                console.error("Failed to send notification:", notiError);
-            }
+          try {
+            await api.post("/api/notifications", {
+              recipientType: 'agent',
+              recipientId: agent.id,
+              message: `(ลูกค้า: ${customerName}) มีรายการสั่งซื้อใหม่: ${policy_number} (ทะเบียน ${registration} ${province}) รอการตรวจสอบ`,
+              type: 'primary',
+              sender: {
+                name: customerName,
+                role: "customer"
+              }
+            });
+            console.log("Notification sent to agent:", agent.id);
+          } catch (notiError) {
+            console.error("Failed to send notification:", notiError);
+          }
         }
 
         alert("ระบบได้ทำการบันทึกข้อมูลแล้ว รอการตรวจสอบแล้วรอชำระเงินได้เลย");
@@ -190,8 +217,26 @@ const handleSubmit = async () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <UploadCard title="สำเนาบัตรประชาชน" icon={<Description className="text-blue-500 text-4xl mb-2" />} preview={idCardPreview} inputRef={idCardInputRef} onUpload={() => idCardInputRef.current?.click()} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFileChange(e, setIdCardFile, setIdCardPreview)} onRemove={() => removeFile(setIdCardFile, setIdCardPreview, idCardInputRef)} description="รองรับไฟล์ .jpg, .png" />
-          <UploadCard title="สำเนาทะเบียนรถยนต์" icon={<DirectionsCar className="text-blue-500 text-4xl mb-2" />} preview={carRegPreview} inputRef={carRegInputRef} onUpload={() => carRegInputRef.current?.click()} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFileChange(e, setCarRegFile, setCarRegPreview)} onRemove={() => removeFile(setCarRegFile, setCarRegPreview, carRegInputRef)} description="หน้าที่มีชื่อเจ้าของรถ" />
+          <UploadCard
+            title="สำเนาบัตรประชาชน"
+            icon={<Description className="text-blue-500 text-4xl mb-2" />}
+            preview={idCardPreview}
+            inputRef={idCardInputRef}
+            onUpload={() => idCardInputRef.current?.click()}
+            onChange={(e) => handleFileChange(e, setIdCardFile, setIdCardPreview)}
+            onRemove={() => removeFile(setIdCardFile, setIdCardPreview, idCardInputRef)}
+            description="รองรับไฟล์ .jpg, .png"
+          />
+          <UploadCard
+            title="สำเนาทะเบียนรถยนต์"
+            icon={<DirectionsCar className="text-blue-500 text-4xl mb-2" />}
+            preview={carRegPreview}
+            inputRef={carRegInputRef}
+            onUpload={() => carRegInputRef.current?.click()}
+            onChange={(e) => handleFileChange(e, setCarRegFile, setCarRegPreview)}
+            onRemove={() => removeFile(setCarRegFile, setCarRegPreview, carRegInputRef)}
+            description="หน้าที่มีชื่อเจ้าของรถ"
+          />
         </div>
 
         <div className="mt-10 flex justify-center">
@@ -202,7 +247,8 @@ const handleSubmit = async () => {
   );
 }
 
-const UploadCard = ({ title, icon, preview, inputRef, onUpload, onChange, onRemove, description }: any) => {
+// ✅ Component UploadCard ที่แก้ไขแล้ว
+const UploadCard = ({ title, icon, preview, inputRef, onUpload, onChange, onRemove, description }: UploadCardProps) => {
   return (
     <div className="bg-white rounded-2xl shadow-md p-6 flex flex-col h-full">
       <h3 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2">{title}</h3>
