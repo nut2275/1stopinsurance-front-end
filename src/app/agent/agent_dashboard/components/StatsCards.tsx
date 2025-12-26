@@ -1,5 +1,5 @@
 import React from 'react';
-import { Wallet, FileCheck, TrendingUp, Target } from 'lucide-react';
+import { Wallet, FileCheck, BarChart3 } from 'lucide-react';
 import { SummaryStats } from '../types';
 
 interface Props {
@@ -7,8 +7,12 @@ interface Props {
 }
 
 const StatsCards: React.FC<Props> = ({ stats }) => {
-  // คำนวณคอมมิชชั่นสมมติ (12%)
-  const commission = stats.totalRevenue * 0.12;
+  
+  // คำนวณราคาเฉลี่ยต่อกรมธรรม์ (Real Logic: ยอดขาย / จำนวนฉบับ)
+  // อันนี้เป็นข้อมูลจริงที่มีประโยชน์ เก็บไว้ดู Performance ตัวเองได้ครับ
+  const avgTicketSize = stats.totalPolicies > 0 
+      ? stats.totalRevenue / stats.totalPolicies 
+      : 0;
 
   const cards = [
     {
@@ -20,14 +24,6 @@ const StatsCards: React.FC<Props> = ({ stats }) => {
       border: 'border-l-4 border-blue-500'
     },
     {
-      title: 'คอมมิชชั่น (โดยประมาณ)',
-      value: `฿${commission.toLocaleString()}`,
-      subtext: 'คิดที่เรท 12%',
-      icon: <TrendingUp className="w-6 h-6 text-white" />,
-      bgIcon: 'bg-emerald-500',
-      border: 'border-l-4 border-emerald-500'
-    },
-    {
       title: 'กรมธรรม์ทั้งหมด',
       value: `${stats.totalPolicies}`,
       unit: 'ฉบับ',
@@ -37,17 +33,18 @@ const StatsCards: React.FC<Props> = ({ stats }) => {
       border: 'border-l-4 border-violet-500'
     },
     {
-      title: 'Conversion Rate',
-      value: '85%', // ตัวเลขสมมติเพื่อ UI
-      subtext: 'เป้าหมายเดือนนี้',
-      icon: <Target className="w-6 h-6 text-white" />,
+      title: 'เบี้ยเฉลี่ยต่อเคส',
+      value: `฿${avgTicketSize.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+      subtext: 'ยอดขาย / จำนวนฉบับ',
+      icon: <BarChart3 className="w-6 h-6 text-white" />, 
       bgIcon: 'bg-orange-500',
       border: 'border-l-4 border-orange-500'
     }
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    // ✅ ปรับ Grid เป็น 3 คอลัมน์ (md:grid-cols-3) เพื่อให้การ์ดเรียงสวยงามเต็มพื้นที่
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
       {cards.map((card, index) => (
         <div key={index} className={`bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex items-start justify-between hover:shadow-md transition-shadow ${card.border}`}>
           <div>

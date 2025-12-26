@@ -37,7 +37,7 @@ interface DecodedToken {
 const AgentDashboard = () => {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState('last_30_days');
   
   // ✅ เรียกใช้ Router
   const router = useRouter();
