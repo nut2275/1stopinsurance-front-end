@@ -123,6 +123,16 @@ export default function UploadDocumentsPage() {
       const idCardBase64 = await toBase64(idCardFile);
       const carRegBase64 = await toBase64(carRegFile);
 
+      // --- จัดการ customer_id ให้สะอาด ---
+      let rawCustomerId = localStorage.getItem("customerBuyId");
+      let cleanCustomerId = "";
+
+      if (rawCustomerId) {
+        // ลบเครื่องหมายคำพูดออก (ถ้ามี) เช่น ""123"" -> 123
+        cleanCustomerId = rawCustomerId.replace(/^"|"$/g, ''); 
+      }
+      // --------------------------------
+
       let customerName = "ลูกค้า (ผ่านระบบ)";
       try {
         const customerStr = localStorage.getItem("customer");
@@ -139,7 +149,7 @@ export default function UploadDocumentsPage() {
       }
 
       const payload = {
-        customer_id: localStorage.getItem("customerBuyId"),
+        customer_id: cleanCustomerId, // ✅ ใช้ ID ที่ clean แล้ว
         agent_id: agentCode || null,
         plan_id: planId,
         brand: searchData.carBrand || "Unknown",
@@ -163,7 +173,7 @@ export default function UploadDocumentsPage() {
             await api.post("/api/notifications", {
               recipientType: 'agent',
               recipientId: agent.id,
-              message: `(ลูกค้า: ${customerName}) มีรายการสั่งซื้อใหม่: ${policy_number} (ทะเบียน ${registration} ${province}) รอการตรวจสอบ`,
+              message: `มีรายการสั่งซื้อใหม่: ${policy_number} (ทะเบียน ${registration} ${province}) รอการตรวจสอบ`,
               type: 'primary',
               sender: {
                 name: customerName,

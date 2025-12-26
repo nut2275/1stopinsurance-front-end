@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import type { NextPage } from 'next';
 import api from "@/services/api"; 
@@ -49,6 +49,9 @@ const AgentNotificationPage: NextPage = () => {
     const [loading, setLoading] = useState(true);
     const router = useRouter();
 
+    // ✅ 1. เพิ่ม useRef เก็บ ID ที่ยังไม่อ่าน
+    const unreadIdsRef = useRef<string[]>([]);
+
     const getSenderPrefix = (sender?: NotifyItem['sender']) => {
         if (!sender) return "";
         switch (sender.role) {
@@ -64,7 +67,6 @@ const AgentNotificationPage: NextPage = () => {
 
         try {
             setNotifications(prev => prev.map(n => n._id === id ? { ...n, isRead: true } : n));
-            // ใช้ api instance
             await api.put('/api/notifications/read-bulk', { notificationIds: [id] });
             
             if (typeof window !== 'undefined') {
@@ -75,13 +77,38 @@ const AgentNotificationPage: NextPage = () => {
         }
     };
 
+    // ✅ 2. อัปเดต Ref เมื่อ Notification เปลี่ยน
+    useEffect(() => {
+        unreadIdsRef.current = notifications
+            .filter(n => !n.isRead) // เอาเฉพาะที่ยังไม่อ่าน
+            .map(n => n._id);
+    }, [notifications]);
+
+    // ✅ 3. ทำงานตอน "ออกจากหน้า" (Cleanup Function)
+    useEffect(() => {
+        return () => {
+            const idsToMark = unreadIdsRef.current;
+            
+            // ถ้ามีรายการที่ยังไม่อ่าน ให้ยิง API ไปบอกว่าอ่านแล้ว
+            if (idsToMark.length > 0) {
+                api.put('/api/notifications/read-bulk', { notificationIds: idsToMark })
+                    .then(() => {
+                        // ส่ง Event ไปบอก Navbar ให้รีเฟรชเลข (ถ้าจำเป็น)
+                        if (typeof window !== 'undefined') {
+                            window.dispatchEvent(new Event('refreshNotification'));
+                        }
+                    })
+                    .catch(err => console.error("Error marking read on exit:", err));
+            }
+        };
+    }, []);
+
     useEffect(() => {
         const fetchNotifications = async () => {
             try {
                 const storedAgent = localStorage.getItem('agentData'); 
                 if (!storedAgent) { setLoading(false); return; }
                 
-                // ✅ Type Safe JSON Parse
                 let userObj: AgentLocalStorage;
                 try { 
                     userObj = JSON.parse(storedAgent) as AgentLocalStorage; 
@@ -93,7 +120,6 @@ const AgentNotificationPage: NextPage = () => {
                 const currentUserId = userObj._id || userObj.id || userObj.userId;
                 if (!currentUserId) return;
 
-                // ✅ Type Safe API Call
                 const res = await api.get<NotificationResponse>(`/api/notifications?userId=${currentUserId}`);
                 
                 if (res.data && res.data.data) {
