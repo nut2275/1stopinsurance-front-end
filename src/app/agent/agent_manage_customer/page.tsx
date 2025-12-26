@@ -94,9 +94,9 @@ const AgentManageCustomerPage = () => {
               <p className="text-slate-500 mt-1">บริหารจัดการข้อมูลลูกค้า ประวัติ และยานพาหนะ</p>
             </div>
             
-            <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all shadow-sm shadow-blue-200">
+            {/* <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all shadow-sm shadow-blue-200">
                 <Plus className="w-4 h-4" /> เพิ่มลูกค้าใหม่
-            </button>
+            </button> */}
           </div>
 
           {/* Search Bar */}
