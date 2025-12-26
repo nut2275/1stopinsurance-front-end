@@ -16,13 +16,44 @@ const THAI_PROVINCES = [
   "อ่างทอง", "อำนาจเจริญ", "อุดรธานี", "อุตรดิตถ์", "อุทัยธานี", "อุบลราชธานี"
 ].sort();
 
-// --- Types ---
+// ✅ 1. สร้าง Interface ย่อยเพื่อแทนที่ any
+interface Customer {
+  _id: string;
+  first_name: string;
+  last_name: string;
+  username: string;
+}
+
+interface Agent {
+  _id: string;
+  first_name: string;
+  last_name: string;
+}
+
+interface CarInsurance {
+  insuranceBrand: string;
+  level: string;
+}
+
+interface Car {
+  brand: string;
+  carModel?: string; // รองรับทั้ง carModel และ model
+  model?: string;
+  subModel?: string; // รองรับทั้ง subModel และ sub_model
+  sub_model?: string;
+  year: string;
+  color: string;
+  registration: string;
+  province: string;
+}
+
+// ✅ 2. อัปเดต Type Purchase ให้ใช้ Interface ย่อย
 type Purchase = {
   _id: string;
-  customer_id: any;
-  agent_id: any;
-  carInsurance_id: any;
-  car_id: any;
+  customer_id: Customer | null; 
+  agent_id: Agent | string | null; // agent อาจจะเป็น object หรือ string ID หรือ null
+  carInsurance_id: CarInsurance | null;
+  car_id: Car | null;
   policy_number: string;
   status: string;
   reject_reason?: string;
@@ -341,7 +372,8 @@ const handleSave = async () => {
       };
 
       // ฟังก์ชันเช็ค Field ทั่วไป
-      const checkField = (label: string, oldVal: any, newVal: any) => {
+      // ✅ แทนที่ any ด้วย unknown หรือ type ที่เฉพาะเจาะจงกว่านี้ถ้าทำได้
+      const checkField = (label: string, oldVal: unknown, newVal: unknown) => {
         const o = String(oldVal || "").trim();
         const n = String(newVal || "").trim();
         
@@ -464,8 +496,10 @@ const handleSave = async () => {
           sender: senderData
       };
 
-      const customerId = typeof selectedItem.customer_id === 'object' ? selectedItem.customer_id._id : selectedItem.customer_id;
-      const agentId = typeof selectedItem.agent_id === 'object' ? selectedItem.agent_id._id : selectedItem.agent_id;
+      // ✅ ใช้ Type Casting เพื่อเข้าถึง _id อย่างปลอดภัย
+      const customerId = selectedItem.customer_id && typeof selectedItem.customer_id === 'object' ? (selectedItem.customer_id as Customer)._id : selectedItem.customer_id as string | null;
+      
+      const agentId = selectedItem.agent_id && typeof selectedItem.agent_id === 'object' ? (selectedItem.agent_id as Agent)._id : selectedItem.agent_id as string;
 
       if (customerId) {
         await api.post('/api/notifications', { ...notificationPayload, recipientId: customerId, recipientType: 'customer' });
@@ -585,7 +619,7 @@ const handleSave = async () => {
                     <tr key={item._id} className="hover:bg-blue-50/50 border-b last:border-0 transition-colors">
                         <td className="p-4 text-sm text-gray-600">{formatTableDate(item.createdAt)}</td>
                         <td className="p-4"><div className="font-medium text-gray-800">{item.customer_id?.first_name} {item.customer_id?.last_name}</div><div className="text-xs text-gray-500">{item.customer_id?.username || "Guest"}</div></td>
-                        <td className="p-4 text-gray-600 text-sm">{typeof item.agent_id === 'object' ? `${item.agent_id?.first_name || '-'} ${item.agent_id?.last_name || ''}` : item.agent_id || "-"}</td>
+                        <td className="p-4 text-gray-600 text-sm">{typeof item.agent_id === 'object' ? `${(item.agent_id as Agent)?.first_name || '-'} ${(item.agent_id as Agent)?.last_name || ''}` : (item.agent_id as string) || "-"}</td>
                         <td className="p-4">
                             <div className="font-semibold text-gray-700">{item.car_id?.brand || "-"} {item.car_id?.carModel || ""}</div>
                             {item.car_id?.subModel && (<div className="text-xs text-gray-500 mb-1 line-clamp-1" title={item.car_id?.subModel}>{item.car_id?.subModel}</div>)}

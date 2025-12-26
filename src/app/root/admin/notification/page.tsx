@@ -29,6 +29,20 @@ const InfoIcon = ({ className }: { className?: string }) => (
 );
 
 // --- Types ---
+// ✅ เพิ่ม Interface สำหรับ Decoded Token
+interface DecodedToken {
+  id?: string;
+  _id?: string;
+  userId?: string;
+  role?: string;
+  [key: string]: unknown;
+}
+
+// ✅ เพิ่ม Interface สำหรับ API Response
+interface NotificationResponse {
+  data: NotifyItem[];
+}
+
 type NotifyItem = {
   _id: string;
   message: string;
@@ -83,12 +97,12 @@ const AdminNotificationPage: NextPage = () => {
           const idsToMark = unreadIdsRef.current;
           if (idsToMark.length > 0) {
               api.put('/api/notifications/read-bulk', { notificationIds: idsToMark })
-                 .then(() => {
-                     if (typeof window !== 'undefined') {
-                         window.dispatchEvent(new Event('refreshNotification'));
-                     }
-                 })
-                 .catch(err => console.error("Error marking read on exit:", err));
+                  .then(() => {
+                      if (typeof window !== 'undefined') {
+                          window.dispatchEvent(new Event('refreshNotification'));
+                      }
+                  })
+                  .catch(err => console.error("Error marking read on exit:", err));
           }
       };
   }, []);
@@ -103,8 +117,9 @@ const AdminNotificationPage: NextPage = () => {
         const token = localStorage.getItem("token");
         if (token) {
             try {
-                const decoded: any = jwtDecode(token);
-                currentUserId = decoded.id || decoded._id || decoded.userId;
+                // ✅ แก้ไข: ระบุ Generic Type ให้ jwtDecode แทน any
+                const decoded = jwtDecode<DecodedToken>(token);
+                currentUserId = decoded.id || decoded._id || decoded.userId || "";
             } catch (e) { console.error("Token decode failed:", e); }
         }
 
@@ -122,9 +137,10 @@ const AdminNotificationPage: NextPage = () => {
         const commonAdminId = "000000000000000000000000";
 
         // 3. ยิง API พร้อมกัน 2 เส้น (ส่วนตัว + ส่วนกลาง)
+        // ✅ แก้ไข: ระบุ Type ให้ api.get เพื่อความปลอดภัย
         const [resPersonal, resCommon] = await Promise.all([
-            currentUserId ? api.get(`/api/notifications?userId=${currentUserId}`).catch(() => ({ data: { data: [] } })) : Promise.resolve({ data: { data: [] } }),
-            api.get(`/api/notifications?userId=${commonAdminId}`).catch(() => ({ data: { data: [] } }))
+            currentUserId ? api.get<NotificationResponse>(`/api/notifications?userId=${currentUserId}`).catch(() => ({ data: { data: [] } })) : Promise.resolve({ data: { data: [] } }),
+            api.get<NotificationResponse>(`/api/notifications?userId=${commonAdminId}`).catch(() => ({ data: { data: [] } }))
         ]);
         
         // 4. รวมข้อมูล
