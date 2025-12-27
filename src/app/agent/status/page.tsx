@@ -223,9 +223,9 @@ export default function AgentStatusPage() {
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden h-full">
                <div className="bg-slate-50 p-4 border-b border-slate-100 flex justify-between items-center">
                  <h2 className="font-semibold text-slate-700">ข้อมูลใบสมัคร</h2>
-                 <span className={`text-xs px-2.5 py-1 rounded-full font-mono font-medium border ${currentStatus === 'in_review' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : ''} ${currentStatus === 'approved' ? 'bg-green-50 text-green-700 border-green-200' : ''} ${currentStatus === 'rejected' ? 'bg-red-50 text-red-700 border-red-200' : ''}`}>
+                 {/* <span className={`text-xs px-2.5 py-1 rounded-full font-mono font-medium border ${currentStatus === 'in_review' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : ''} ${currentStatus === 'approved' ? 'bg-green-50 text-green-700 border-green-200' : ''} ${currentStatus === 'rejected' ? 'bg-red-50 text-red-700 border-red-200' : ''}`}>
                     Ref: {agentData._id.slice(-6).toUpperCase()}
-                 </span>
+                 </span> */}
               </div>
               <div className="p-6">
                 <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 mb-8 pb-8 border-b border-slate-100 text-center sm:text-left">

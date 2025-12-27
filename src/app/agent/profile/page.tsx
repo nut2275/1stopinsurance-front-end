@@ -204,7 +204,7 @@ export default function AgentProfilePage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold text-slate-800">ข้อมูลตัวแทนประกัน</h1>
-              <p className="text-slate-500 text-sm">รหัสอ้างอิง: <span className="font-mono">{agent._id}</span></p>
+              {/* <p className="text-slate-500 text-sm">รหัสอ้างอิง: <span className="font-mono">{agent._id}</span></p> */}
             </div>
             
             <div>
