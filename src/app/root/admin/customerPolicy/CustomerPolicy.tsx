@@ -1,10 +1,15 @@
 "use client";
 
-import { useState, useEffect, ChangeEvent } from "react";
+import { useState, useEffect, ChangeEvent, useMemo } from "react";
 import api from "@/services/api";
-import { Search, Edit, X, Save, Upload, Eye, ChevronLeft, ChevronRight, FileText, CreditCard, Calendar, Copy, Check, AlertCircle, Download, Filter } from "lucide-react";
+import { 
+  Search, Edit, X, Save, Upload, Eye, ChevronLeft, ChevronRight, 
+  FileText, CreditCard, Calendar, Copy, Check, AlertCircle, Download, 
+  Filter, Car, User, ShieldCheck, Clock, CheckCircle2, XCircle, Briefcase, ListFilter,
+  FileCheck, Image as ImageIcon, Paperclip, Phone, Mail, Banknote
+} from "lucide-react";
 
-// --- รายชื่อจังหวัด ---
+// --- 1. Constants & Types ---
 const THAI_PROVINCES = [
   "กรุงเทพมหานคร", "กระบี่", "กาญจนบุรี", "กาฬสินธุ์", "กำแพงเพชร", "ขอนแก่น", "จันทบุรี", "ฉะเชิงเทรา", "ชลบุรี", "ชัยนาท",
   "ชัยภูมิ", "ชุมพร", "เชียงราย", "เชียงใหม่", "ตรัง", "ตราด", "ตาก", "นครนายก", "นครปฐม", "นครพนม", "นครราชสีมา",
@@ -16,74 +21,42 @@ const THAI_PROVINCES = [
   "อ่างทอง", "อำนาจเจริญ", "อุดรธานี", "อุตรดิตถ์", "อุทัยธานี", "อุบลราชธานี"
 ].sort();
 
-// ✅ 1. สร้าง Interface ย่อยเพื่อแทนที่ any
-interface Customer {
-  _id: string;
-  first_name: string;
-  last_name: string;
-  username: string;
+interface Customer { 
+    _id: string; 
+    first_name: string; 
+    last_name: string; 
+    username: string;
+    email?: string; // ✅ เพิ่ม Email
+    phone?: string; // ✅ เพิ่ม Phone
+    imgProfile_customer?: string; 
 }
+interface Agent { _id: string; first_name: string; last_name: string; }
+interface CarInsurance { insuranceBrand: string; level: string; premium: number; } // ✅ เพิ่ม Premium
+interface Car { brand: string; carModel?: string; model?: string; subModel?: string; sub_model?: string; year: string; color: string; registration: string; province: string; }
 
-interface Agent {
-  _id: string;
-  first_name: string;
-  last_name: string;
-}
-
-interface CarInsurance {
-  insuranceBrand: string;
-  level: string;
-}
-
-interface Car {
-  brand: string;
-  carModel?: string; // รองรับทั้ง carModel และ model
-  model?: string;
-  subModel?: string; // รองรับทั้ง subModel และ sub_model
-  sub_model?: string;
-  year: string;
-  color: string;
-  registration: string;
-  province: string;
-}
-
-// ✅ 2. อัปเดต Type Purchase ให้ใช้ Interface ย่อย
 type Purchase = {
   _id: string;
   customer_id: Customer | null; 
-  agent_id: Agent | string | null; // agent อาจจะเป็น object หรือ string ID หรือ null
+  agent_id: Agent | string | null; 
   carInsurance_id: CarInsurance | null;
   car_id: Car | null;
   policy_number: string;
   status: string;
   reject_reason?: string;
-  
   start_date?: string;
   end_date?: string;
   updatedAt: string;
-
   citizenCardImage: string;
   carRegistrationImage: string;
   paymentSlipImage?: string;
   installmentDocImage?: string;
   consentFormImage?: string;
   policyFile?: string;
-  
   paymentMethod?: string;
-
   createdAt: string;
 };
 
-const INSURANCE_COMPANIES = [
-  "ทั้งหมด",
-  "มิตรแท้ประกันภัย",
-  "วิริยะประกันภัย",
-  "กรุงเทพประกันภัย",
-  "ธนชาตประกันภัย",
-  "เมืองไทยประกันภัย",
-  "ทิพยประกันภัย"
-];
-
+const INSURANCE_COMPANIES = ["ทั้งหมด", "มิตรแท้ประกันภัย", "วิริยะประกันภัย", "กรุงเทพประกันภัย", "ธนชาตประกันภัย", "เมืองไทยประกันภัย", "ทิพยประกันภัย"];
 const INSURANCE_LEVELS = ["ชั้น 1", "ชั้น 2+", "ชั้น 2", "ชั้น 3+", "ชั้น 3"];
 const ITEMS_PER_PAGE = 10;
 
@@ -91,14 +64,13 @@ const FILTER_STATUSES = [
     { value: "all", label: "สถานะทั้งหมด" },
     { value: "pending", label: "รอตรวจสอบ" },
     { value: "pending_payment", label: "รอชำระเงิน" },
-    { value: "active", label: "คุ้มครองแล้ว (Active)" },
+    { value: "active", label: "คุ้มครองแล้ว" },
     { value: "expired", label: "หมดอายุ" },
-    { value: "rejected", label: "ปฏิเสธ" },
+    { value: "rejected", label: "ไม่ผ่าน" },
 ];
 
 // --- Helper Functions ---
 const getTodayString = () => new Date().toISOString().split('T')[0];
-
 const addYearsToDate = (dateStr: string, years: number): string => {
     if (!dateStr) return "";
     const date = new Date(dateStr);
@@ -106,51 +78,37 @@ const addYearsToDate = (dateStr: string, years: number): string => {
     date.setFullYear(date.getFullYear() + years);
     return date.toISOString().split('T')[0];
 };
-
 const formatDateForInput = (isoDateString?: string) => {
     if (!isoDateString) return "";
     const date = new Date(isoDateString);
-    if (isNaN(date.getTime())) return ""; 
-    return date.toISOString().split('T')[0];
+    return isNaN(date.getTime()) ? "" : date.toISOString().split('T')[0];
 };
-
 const formatDisplayDate = (isoString: string) => {
     if (!isoString) return "";
     const date = new Date(isoString);
     if (isNaN(date.getTime())) return "";
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const year = (date.getFullYear() + 543);
-    return `${day}/${month}/${year}`;
+    return date.toLocaleDateString("th-TH", { year: 'numeric', month: '2-digit', day: '2-digit' });
 };
-
 const formatTableDate = (isoString: string) => {
     if (!isoString) return "-";
     const date = new Date(isoString);
     if (isNaN(date.getTime())) return "-";
-    return date.toLocaleDateString("th-TH", {
-        day: '2-digit',
-        month: '2-digit',
-        year: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-    });
+    return date.toLocaleDateString("th-TH", { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
+// --- Component ---
 export default function ManagePolicyPage() {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [filteredData, setFilteredData] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // --- Filter State ---
+  // Filter States
   const [searchName, setSearchName] = useState("");
-  const [searchAgent, setSearchAgent] = useState("");
+  const [searchAgent, setSearchAgent] = useState(""); 
   const [searchCompany, setSearchCompany] = useState("ทั้งหมด");
   const [searchPolicyNo, setSearchPolicyNo] = useState("");
-  const [searchStatus, setSearchStatus] = useState("all");
+  const [searchStatus, setSearchStatus] = useState("all"); 
   
-  // New Filters
   const [sortOrder, setSortOrder] = useState("desc"); 
   const [filterCarBrand, setFilterCarBrand] = useState("");
   const [filterCarModel, setFilterCarModel] = useState("");
@@ -159,35 +117,30 @@ export default function ManagePolicyPage() {
   const [filterModelList, setFilterModelList] = useState<string[]>([]);
   const [filterSubModelList, setFilterSubModelList] = useState<string[]>([]);
 
-  // Pagination State
+  // Pagination & Modal
   const [currentPage, setCurrentPage] = useState(1);
-
-  // Modal State
   const [selectedItem, setSelectedItem] = useState<Purchase | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  const [activeModalTab, setActiveModalTab] = useState<'info' | 'documents'>('info');
 
-  // --- Edit Form State ---
+  // Edit Form
   const [brandOptions, setBrandOptions] = useState<string[]>([]); 
   const [modelOptions, setModelOptions] = useState<string[]>([]);
   const [subModelOptions, setSubModelOptions] = useState<string[]>([]);
 
   const [editForm, setEditForm] = useState({
-    status: "", 
-    reject_reason: "", 
-    policy_number: "", 
-    start_date: "", 
-    end_date: "",
+    status: "", reject_reason: "", policy_number: "", start_date: "", end_date: "",
     paymentSlipImage: "", citizenCardImage: "", carRegistrationImage: "",
     installmentDocImage: "", consentFormImage: "", policyFile: "",
-    customer_first_name: "", customer_last_name: "", insurance_brand: "",
-    insurance_level: "", 
-    
-    car_brand: "", car_model: "", car_submodel: "", 
-    car_year: "", car_color: "", car_registration: "", car_province: "", 
-    paymentMethod: "full" 
+    customer_first_name: "", customer_last_name: "", insurance_brand: "", insurance_level: "", 
+    car_brand: "", car_model: "", car_submodel: "", car_year: "", car_color: "", car_registration: "", car_province: "", 
+    paymentMethod: "full",
+    // ✅ เพิ่ม State สำหรับแสดงผล (ไม่ได้แก้ไข)
+    customer_phone: "", customer_email: "", premium_price: 0
   });
 
+  // --- API Fetching ---
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -198,84 +151,37 @@ export default function ManagePolicyPage() {
     finally { setLoading(false); }
   };
 
-  // --- API Handlers ---
   const fetchBrands = async () => {
-      try {
-          const res = await api.get("/car-master/brands");
-          setBrandOptions(res.data);
-      } catch (err) { console.error(err); }
+      try { const res = await api.get("/car-master/brands"); setBrandOptions(res.data); } catch (err) { console.error(err); }
   };
-
   const fetchModelsGeneric = async (brand: string) => {
       if (!brand) return [];
-      try { return (await api.get(`/car-master/models?brand=${encodeURIComponent(brand)}`)).data; } 
-      catch (err) { return []; }
+      try { return (await api.get(`/car-master/models?brand=${encodeURIComponent(brand)}`)).data; } catch (err) { return []; }
   };
-
   const fetchSubModelsGeneric = async (brand: string, model: string) => {
       if (!brand || !model) return [];
-      try { return (await api.get(`/car-master/sub-models?brand=${encodeURIComponent(brand)}&model=${encodeURIComponent(model)}`)).data; } 
-      catch (err) { return []; }
+      try { return (await api.get(`/car-master/sub-models?brand=${encodeURIComponent(brand)}&model=${encodeURIComponent(model)}`)).data; } catch (err) { return []; }
   };
 
-  // --- Filter Handlers ---
-  const handleFilterBrandChange = async (e: ChangeEvent<HTMLSelectElement>) => {
-      const val = e.target.value;
-      setFilterCarBrand(val);
-      setFilterCarModel("");
-      setFilterCarSubModel("");
-      if (val) {
-          const models = await fetchModelsGeneric(val);
-          setFilterModelList(models);
-      } else {
-          setFilterModelList([]);
-      }
-      setFilterSubModelList([]);
-  };
+  useEffect(() => { fetchData(); fetchBrands(); }, []);
 
-  const handleFilterModelChange = async (e: ChangeEvent<HTMLSelectElement>) => {
-      const val = e.target.value;
-      setFilterCarModel(val);
-      setFilterCarSubModel("");
-      if (val) {
-          const subs = await fetchSubModelsGeneric(filterCarBrand, val);
-          setFilterSubModelList(subs);
-      } else {
-          setFilterSubModelList([]);
-      }
-  };
-
-  // --- Edit Form Handlers ---
-  const handleEditBrandChange = async (e: ChangeEvent<HTMLSelectElement>) => {
-      const val = e.target.value;
-      setEditForm({ ...editForm, car_brand: val, car_model: "", car_submodel: "" }); 
-      const models = await fetchModelsGeneric(val);
-      setModelOptions(models);
-      setSubModelOptions([]); 
-  };
-
-  const handleEditModelChange = async (e: ChangeEvent<HTMLSelectElement>) => {
-      const val = e.target.value;
-      setEditForm({ ...editForm, car_model: val, car_submodel: "" }); 
-      const subs = await fetchSubModelsGeneric(editForm.car_brand, val);
-      setSubModelOptions(subs); 
-  };
-
-  useEffect(() => { 
-      fetchData(); 
-      fetchBrands(); 
-  }, []);
-
+  // --- Filter Logic ---
   useEffect(() => {
     let temp = purchases;
-
     if (searchName) temp = temp.filter((p) => (`${p.customer_id?.first_name} ${p.customer_id?.last_name}`).toLowerCase().includes(searchName.toLowerCase()));
-    if (searchAgent) temp = temp.filter((p) => JSON.stringify(p.agent_id || "").toLowerCase().includes(searchAgent.toLowerCase()));
+    if (searchAgent) temp = temp.filter((p) => {
+        const agentName = typeof p.agent_id === 'object' ? `${(p.agent_id as Agent)?.first_name} ${(p.agent_id as Agent)?.last_name}` : "";
+        return agentName.toLowerCase().includes(searchAgent.toLowerCase());
+    });
     if (searchCompany && searchCompany !== "ทั้งหมด") temp = temp.filter((p) => (p.carInsurance_id?.insuranceBrand || "") === searchCompany);
     if (searchPolicyNo) temp = temp.filter((p) => (p.policy_number || "").toLowerCase().includes(searchPolicyNo.toLowerCase()));
     
     if (searchStatus !== "all") {
-        temp = temp.filter((p) => p.status === searchStatus);
+        if (searchStatus === 'rejected_expired') {
+             temp = temp.filter((p) => p.status === 'rejected' || p.status === 'expired');
+        } else {
+             temp = temp.filter((p) => p.status === searchStatus);
+        }
     }
 
     if (filterCarBrand) temp = temp.filter((p) => (p.car_id?.brand || "").trim() === filterCarBrand);
@@ -292,436 +198,386 @@ export default function ManagePolicyPage() {
     setCurrentPage(1); 
   }, [searchName, searchAgent, searchCompany, searchPolicyNo, searchStatus, sortOrder, filterCarBrand, filterCarModel, filterCarSubModel, purchases]);
 
-  const totalPages = Math.ceil(filteredData.length / ITEMS_PER_PAGE);
-  const indexOfLastItem = currentPage * ITEMS_PER_PAGE;
-  const indexOfFirstItem = indexOfLastItem - ITEMS_PER_PAGE;
-  const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
-  const handlePageChange = (n: number) => { if (n >= 1 && n <= totalPages) setCurrentPage(n); };
+  // --- Statistics ---
+  const stats = useMemo(() => {
+      return {
+          all: purchases.length,
+          pending: purchases.filter(p => p.status === 'pending').length,
+          pending_payment: purchases.filter(p => p.status === 'pending_payment').length,
+          active: purchases.filter(p => p.status === 'active').length,
+          expired: purchases.filter(p => p.status === 'expired').length,
+          rejected: purchases.filter(p => p.status === 'rejected').length,
+      };
+  }, [purchases]);
 
+  // --- Handlers ---
+  const handleFilterBrandChange = async (e: ChangeEvent<HTMLSelectElement>) => {
+      const val = e.target.value; setFilterCarBrand(val); setFilterCarModel(""); setFilterCarSubModel("");
+      setFilterModelList(val ? await fetchModelsGeneric(val) : []); setFilterSubModelList([]);
+  };
+  const handleFilterModelChange = async (e: ChangeEvent<HTMLSelectElement>) => {
+      const val = e.target.value; setFilterCarModel(val); setFilterCarSubModel("");
+      setFilterSubModelList(val ? await fetchSubModelsGeneric(filterCarBrand, val) : []);
+  };
+  
   const handleEditClick = async (item: Purchase) => {
     setSelectedItem(item);
+    setActiveModalTab('info');
     const existingStart = formatDateForInput(item.start_date);
     const defaultStart = existingStart || getTodayString(); 
-    const existingEnd = formatDateForInput(item.end_date);
-    const defaultEnd = existingEnd || addYearsToDate(defaultStart, 1); 
-
+    const defaultEnd = formatDateForInput(item.end_date) || addYearsToDate(defaultStart, 1); 
     const currentBrand = (item.car_id?.brand || "").trim();
     const currentModel = (item.car_id?.carModel || item.car_id?.model || "").trim(); 
     const currentSubModel = (item.car_id?.subModel || item.car_id?.sub_model || "").trim(); 
 
     setEditForm({
-      status: item.status, 
-      reject_reason: item.reject_reason || "", 
-      policy_number: item.policy_number || "",
+      status: item.status, reject_reason: item.reject_reason || "", policy_number: item.policy_number || "",
       start_date: defaultStart, end_date: defaultEnd,
       paymentSlipImage: item.paymentSlipImage || "", policyFile: item.policyFile || "",
       citizenCardImage: item.citizenCardImage || "", carRegistrationImage: item.carRegistrationImage || "",
       installmentDocImage: item.installmentDocImage || "", consentFormImage: item.consentFormImage || "",
       customer_first_name: item.customer_id?.first_name || "", customer_last_name: item.customer_id?.last_name || "",
       insurance_brand: item.carInsurance_id?.insuranceBrand || "", insurance_level: item.carInsurance_id?.level || "",
-      
-      car_brand: currentBrand, 
-      car_model: currentModel,
-      car_submodel: currentSubModel,
-      
-      car_year: item.car_id?.year || "", 
-      car_color: item.car_id?.color || "", 
-      car_registration: item.car_id?.registration || "", 
-      car_province: item.car_id?.province || "", 
-      paymentMethod: item.paymentMethod || "full"
+      car_brand: currentBrand, car_model: currentModel, car_submodel: currentSubModel,
+      car_year: item.car_id?.year || "", car_color: item.car_id?.color || "", 
+      car_registration: item.car_id?.registration || "", car_province: item.car_id?.province || "", 
+      paymentMethod: item.paymentMethod || "full",
+      // ✅ Map ข้อมูลใหม่
+      customer_phone: item.customer_id?.phone || "-",
+      customer_email: item.customer_id?.email || "-",
+      premium_price: item.carInsurance_id?.premium || 0
     });
 
     if (currentBrand) {
-        const models = await fetchModelsGeneric(currentBrand);
-        setModelOptions(models);
-        if (currentModel) {
-            const subs = await fetchSubModelsGeneric(currentBrand, currentModel);
-            setSubModelOptions(subs);
-        }
-    } else {
-        setModelOptions([]);
-        setSubModelOptions([]);
-    }
-
+        setModelOptions(await fetchModelsGeneric(currentBrand));
+        if (currentModel) setSubModelOptions(await fetchSubModelsGeneric(currentBrand, currentModel));
+    } else { setModelOptions([]); setSubModelOptions([]); }
     setIsModalOpen(true);
   };
 
-  const handleCopyPolicy = () => { if (editForm.policy_number) { navigator.clipboard.writeText(editForm.policy_number); setIsCopied(true); setTimeout(() => setIsCopied(false), 2000); } };
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>, field: keyof typeof editForm) => { const file = e.target.files?.[0]; if (file) { const reader = new FileReader(); reader.onloadend = () => { setEditForm((prev) => ({ ...prev, [field]: reader.result as string })); }; reader.readAsDataURL(file); } };
-  
-  // ✅ Function บันทึกและส่ง Notification
-const handleSave = async () => {
-    if (!selectedItem) return;
-
-    try {
-      await api.put(`/purchase/admin/${selectedItem._id}`, { ...editForm });
-
-      // ============================================
-      // 🟢 Logic ตรวจสอบการแก้ไขและกำหนดสีแจ้งเตือน
-      // ============================================
-      const changes: string[] = [];
-      let hasAddition = false; // ตัวแปรเช็คว่ามีการเพิ่มข้อมูลใหม่ไหม
-      let hasEdit = false;     // ตัวแปรเช็คว่ามีการแก้ไขไหม
-
-      const getStatusLabel = (s: string) => {
-        const map: Record<string, string> = {
-          'pending': 'รอตรวจสอบ', 'pending_payment': 'รอชำระเงิน',
-          'active': 'คุ้มครองแล้ว', 'expired': 'หมดอายุ', 'rejected': 'ปฏิเสธ'
-        };
-        return map[s] || s;
-      };
-
-      // ฟังก์ชันเช็ค Field ทั่วไป
-      // ✅ แทนที่ any ด้วย unknown หรือ type ที่เฉพาะเจาะจงกว่านี้ถ้าทำได้
-      const checkField = (label: string, oldVal: unknown, newVal: unknown) => {
-        const o = String(oldVal || "").trim();
-        const n = String(newVal || "").trim();
-        
-        if (o !== n) {
-            // ถ้าค่าเดิมว่าง แล้วค่าใหม่มีข้อมูล = การเพิ่ม
-            if (o === "" && n !== "") {
-                changes.push(`เพิ่ม${label} ("${n}")`);
-                hasAddition = true;
-            } else {
-                changes.push(`แก้ไข${label} (จาก "${o || '-'}" เป็น "${n || '-'}")`);
-                hasEdit = true;
-            }
-        }
-      };
-
-      // ฟังก์ชันเช็ครูปภาพ
-      const checkImage = (label: string, oldImg: string | undefined, newImg: string) => {
-        if (newImg && newImg !== (oldImg || "")) {
-           if (!oldImg) {
-             changes.push(`เพิ่มรูปภาพ (${label})`);
-             hasAddition = true;
-           } else {
-             if (label === "หลักฐานการโอนเงิน") changes.push(`เปลี่ยนรูปภาพการชำระ`);
-             else changes.push(`แก้ไขรูปภาพ (${label})`);
-             
-             hasEdit = true;
-           }
-        }
-      };
-
-      // --- เริ่มเปรียบเทียบ ---
-      checkField("ชื่อลูกค้า", selectedItem.customer_id?.first_name, editForm.customer_first_name);
-      checkField("นามสกุล", selectedItem.customer_id?.last_name, editForm.customer_last_name);
-      checkField("บริษัทประกัน", selectedItem.carInsurance_id?.insuranceBrand, editForm.insurance_brand);
-      checkField("ชั้นประกัน", selectedItem.carInsurance_id?.level, editForm.insurance_level);
-      
-      checkField("ยี่ห้อรถ", selectedItem.car_id?.brand, editForm.car_brand);
-      checkField("รุ่นรถ", selectedItem.car_id?.carModel || selectedItem.car_id?.model, editForm.car_model);
-      checkField("รุ่นย่อย", selectedItem.car_id?.subModel || selectedItem.car_id?.sub_model, editForm.car_submodel);
-      checkField("ปีรถ", selectedItem.car_id?.year, editForm.car_year);
-      checkField("สีรถ", selectedItem.car_id?.color, editForm.car_color);
-      checkField("ทะเบียน", selectedItem.car_id?.registration, editForm.car_registration);
-      checkField("จังหวัด", selectedItem.car_id?.province, editForm.car_province);
-      
-      // เลขกรมธรรม์
-      if (selectedItem.policy_number !== editForm.policy_number) {
-        const oldP = selectedItem.policy_number || "";
-        const newP = editForm.policy_number || "";
-        if (oldP === "" && newP !== "") {
-            changes.push(`เพิ่มเลขกรมธรรม์ ("${newP}")`);
-            hasAddition = true;
-        } else {
-            changes.push(`แก้ไขเลขกรมธรรม์ (จาก "${oldP || '-'}" เป็น "${newP || '-'}")`);
-            hasEdit = true;
-        }
-      }
-
-      // สถานะ
-      if (selectedItem.status !== editForm.status) {
-        changes.push(`แก้ไขสถานะกรมธรรม์ (จาก "${getStatusLabel(selectedItem.status)}" เป็น "${getStatusLabel(editForm.status)}")`);
-        // การเปลี่ยนสถานะถือเป็นการแก้ไขที่สำคัญ (จะไปเช็คสีด้านล่างอีกที)
-      }
-
-      // รูปภาพ
-      checkImage("บัตรประชาชน", selectedItem.citizenCardImage, editForm.citizenCardImage);
-      checkImage("ทะเบียนรถ", selectedItem.carRegistrationImage, editForm.carRegistrationImage);
-      checkImage("หลักฐานการโอนเงิน", selectedItem.paymentSlipImage, editForm.paymentSlipImage);
-      checkImage("เอกสารการผ่อน", selectedItem.installmentDocImage, editForm.installmentDocImage);
-      checkImage("หนังสือยินยอม", selectedItem.consentFormImage, editForm.consentFormImage);
-      checkImage("ไฟล์กรมธรรม์", selectedItem.policyFile, editForm.policyFile);
-
-      // --- สรุปข้อความและกำหนดสี (Type) ---
-      const carReg = editForm.car_registration || "ไม่ระบุทะเบียน";
-      let message = "";
-      let type = 'info'; // ค่าเริ่มต้น: สีฟ้า (info)
-
-      if (changes.length > 0) {
-        message = `รายการอัปเดต กรมธรรม์ทะเบียน ${carReg}:\n- ${changes.join('\n- ')}`;
-      } else {
-        message = `ยืนยันข้อมูลกรมธรรม์ ทะเบียน ${carReg} (ไม่มีการเปลี่ยนแปลง)`;
-      }
-
-      // 🔴 ลำดับความสำคัญของสี (Priority)
-      // 1. สถานะปฏิเสธ -> สีแดง (warning)
-      if (editForm.status === 'rejected') {
-          type = 'warning';
-      }
-      // 2. สถานะคุ้มครอง/Active -> สีเขียว (success)
-      else if (editForm.status === 'active' && selectedItem.status !== 'active') {
-          type = 'success';
-      }
-      // 3. สถานะหมดอายุ -> สีแดง (warning)
-      else if (editForm.status === 'expired') {
-          type = 'warning';
-      }
-      // 4. ถ้ามีการ "เพิ่ม" ข้อมูล/รูปภาพ -> สีม่วง (primary)
-      else if (hasAddition) {
-          type = 'primary';
-      }
-      // 5. ถ้าเป็นการ "แก้ไข" ข้อมูล/รูปภาพ -> สีฟ้า (info) - (เป็นค่า Default อยู่แล้ว)
-      else if (hasEdit) {
-          type = 'info';
-      }
-
-      // --- เตรียมข้อมูลผู้ส่ง ---
-      let senderData = { name: "Admin", role: "admin" };
-      const storedUser = localStorage.getItem('userData');
-      if (storedUser && storedUser !== "undefined") {
-        try {
-            const user = JSON.parse(storedUser);
-            senderData.name = user.first_name || user.username || "Admin";
-        } catch(e) {}
-      }
-
-      // --- ส่ง API ---
-      const notificationPayload = {
-          message,
-          type, // ส่งสีที่คำนวณได้ไป
-          relatedPurchaseId: selectedItem._id,
-          sender: senderData
-      };
-
-      // ✅ ใช้ Type Casting เพื่อเข้าถึง _id อย่างปลอดภัย
-      const customerId = selectedItem.customer_id && typeof selectedItem.customer_id === 'object' ? (selectedItem.customer_id as Customer)._id : selectedItem.customer_id as string | null;
-      
-      const agentId = selectedItem.agent_id && typeof selectedItem.agent_id === 'object' ? (selectedItem.agent_id as Agent)._id : selectedItem.agent_id as string;
-
-      if (customerId) {
-        await api.post('/api/notifications', { ...notificationPayload, recipientId: customerId, recipientType: 'customer' });
-      }
-
-      if (agentId) {
-        // เพิ่ม prefix ชื่อลูกค้าให้ Agent
-        const agentMsg = `(ลูกค้า: ${editForm.customer_first_name}) ${message}`;
-        await api.post('/api/notifications', { ...notificationPayload, message: agentMsg, recipientId: agentId, recipientType: 'agent' });
-      }
-
-      window.dispatchEvent(new Event('refreshNotification'));
-      alert("บันทึกข้อมูลและส่งการแจ้งเตือนเรียบร้อยแล้ว");
-      setIsModalOpen(false);
-      fetchData();
-
-    } catch (error) {
-      console.error("Save error:", error);
-      alert("เกิดข้อผิดพลาดในการบันทึก");
-    }
+  const handleEditBrandChange = async (e: ChangeEvent<HTMLSelectElement>) => {
+      const val = e.target.value; setEditForm({ ...editForm, car_brand: val, car_model: "", car_submodel: "" }); 
+      setModelOptions(await fetchModelsGeneric(val)); setSubModelOptions([]); 
+  };
+  const handleEditModelChange = async (e: ChangeEvent<HTMLSelectElement>) => {
+      const val = e.target.value; setEditForm({ ...editForm, car_model: val, car_submodel: "" }); 
+      setSubModelOptions(await fetchSubModelsGeneric(editForm.car_brand, val)); 
   };
 
-  const handleStartDateChange = (e: ChangeEvent<HTMLInputElement>) => { const newStart = e.target.value; const newEnd = addYearsToDate(newStart, 1); setEditForm({ ...editForm, start_date: newStart, end_date: newEnd }); };
-  const handleEndDateChange = (e: ChangeEvent<HTMLInputElement>) => { const newEnd = e.target.value; const newStart = addYearsToDate(newEnd, -1); setEditForm({ ...editForm, start_date: newStart, end_date: newEnd }); };
-  const handleStatusChange = (e: ChangeEvent<HTMLSelectElement>) => { const newStatus = e.target.value; let updates: any = { status: newStatus }; if (newStatus === 'active') { if(!editForm.start_date) { const today = getTodayString(); updates.start_date = today; updates.end_date = addYearsToDate(today, 1); } } setEditForm({ ...editForm, ...updates }); };
+  const handleSave = async () => {
+    if (!selectedItem) return;
+    try {
+      await api.put(`/purchase/admin/${selectedItem._id}`, { ...editForm });
+      alert("บันทึกข้อมูลเรียบร้อยแล้ว");
+      setIsModalOpen(false);
+      fetchData();
+    } catch (error) { console.error("Save error:", error); alert("เกิดข้อผิดพลาดในการบันทึก"); }
+  };
 
-  const renderImageUpload = (label: string, fieldName: keyof typeof editForm, currentImage: string) => {
-    // ... (Your existing renderImageUpload code remains exactly the same, hidden for brevity) ...
+  const handleCopyPolicy = () => { if (editForm.policy_number) { navigator.clipboard.writeText(editForm.policy_number); setIsCopied(true); setTimeout(() => setIsCopied(false), 2000); } };
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>, field: keyof typeof editForm) => { 
+      const file = e.target.files?.[0]; 
+      if (file) { const reader = new FileReader(); reader.onloadend = () => { setEditForm((prev) => ({ ...prev, [field]: reader.result as string })); }; reader.readAsDataURL(file); } 
+  };
+
+  const handleStatusChange = (e: ChangeEvent<HTMLSelectElement>) => { setEditForm({...editForm, status: e.target.value}); }
+  const handleStartDateChange = (e: ChangeEvent<HTMLInputElement>) => { setEditForm({...editForm, start_date: e.target.value}); }
+  const handleEndDateChange = (e: ChangeEvent<HTMLInputElement>) => { setEditForm({...editForm, end_date: e.target.value}); }
+
+  // --- Render Helpers ---
+  const getStatusBadge = (status: string) => {
+      switch(status) {
+          case 'pending': return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-800 border border-yellow-200">● รอตรวจสอบ</span>;
+          case 'pending_payment': return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-800 border border-orange-200">● รอชำระเงิน</span>;
+          case 'active': return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800 border border-green-200">● คุ้มครองแล้ว</span>;
+          case 'expired': return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200">● หมดอายุ</span>;
+          case 'rejected': return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-200">● ไม่ผ่าน</span>;
+          default: return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600">● {status}</span>;
+      }
+  };
+
+  const totalPages = Math.ceil(filteredData.length / ITEMS_PER_PAGE);
+  const currentItems = filteredData.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  const renderImageUpload = (label: string, fieldName: keyof typeof editForm, currentImage: string, extraInfo?: React.ReactNode) => {
+    const hasFile = !!currentImage;
     const isPdf = currentImage?.startsWith('data:application/pdf') || currentImage?.toLowerCase().endsWith('.pdf');
-    const getDownloadFilename = () => `${fieldName}_${Date.now()}.${isPdf ? "pdf" : "png"}`;
-    const handleMainDownload = (e: React.MouseEvent) => { e.stopPropagation(); const link = document.createElement("a"); link.href = currentImage; link.download = getDownloadFilename(); document.body.appendChild(link); link.click(); document.body.removeChild(link); };
-    const handleView = () => { const win = window.open("", "_blank"); if (!win) return; const filename = getDownloadFilename(); const styles = `body { margin: 0; background-color: #e5e7eb; height: 100vh; display: flex; justify-content: center; align-items: center; overflow: hidden; font-family: sans-serif; } iframe { width: 100%; height: 100%; border: none; } img { max-width: 95%; max-height: 95%; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border-radius: 8px; object-fit: contain; } .download-btn { position: fixed; top: 20px; right: 20px; background: rgba(255,255,255,0.8); backdrop-filter: blur(4px); border: 1px solid #d1d5db; border-radius: 50%; padding: 12px; width: 48px; height: 48px; display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); transition: all 0.2s; z-index: 100; } .download-btn:hover { background: white; transform: scale(1.05); color: #2563eb; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2); } .download-icon { width: 24px; height: 24px; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; fill: none; color: #4b5563; } .download-btn:hover .download-icon { color: #2563eb; }`; const script = `<script>function downloadCurrentFile() { const link = document.createElement("a"); link.href = "${currentImage}"; link.download = "${filename}"; document.body.appendChild(link); link.click(); document.body.removeChild(link); }</script>`; const downloadButtonHtml = `<button class="download-btn" onclick="downloadCurrentFile()" title="ดาวน์โหลดไฟล์นี้"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="download-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg></button>`; let contentHtml = isPdf ? `${downloadButtonHtml}<iframe src="${currentImage}"></iframe>` : `${downloadButtonHtml}<img src="${currentImage}" alt="${label}" />`; win.document.write(`<!DOCTYPE html><html><head><title>Preview: ${label}</title><meta charset="utf-8"><style>${styles}</style></head><body>${contentHtml}${script}</body></html>`); win.document.close(); };
 
     return (
-      <div className="mb-4 border-b pb-4 last:border-b-0">
-          <h3 className="text-sm font-semibold text-gray-700 mb-2 flex justify-between items-center"><span>{label}</span> {currentImage && <span className="text-green-600 text-xs bg-green-50 px-2 py-1 rounded-full">มีไฟล์แล้ว</span>}</h3>
-          {currentImage ? ( <div className="relative group mb-2 border rounded bg-gray-100 overflow-hidden h-40"> <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 z-20"> <button type="button" onClick={handleView} className="p-2 bg-white rounded-full text-gray-700 hover:text-blue-600 hover:scale-110 transition shadow-lg" title="ดูภาพเต็ม"><Eye className="w-5 h-5" /></button> <button type="button" onClick={handleMainDownload} className="p-2 bg-white rounded-full text-gray-700 hover:text-green-600 hover:scale-110 transition shadow-lg" title="ดาวน์โหลด"><Download className="w-5 h-5" /></button> </div> <div className="w-full h-full flex items-center justify-center cursor-pointer" onClick={handleView}> {isPdf ? <div className="flex flex-col items-center text-gray-500"><FileText className="w-12 h-12 mb-2 text-red-500" /><span className="text-sm font-medium">เอกสาร PDF</span></div> : <img src={currentImage} alt={label} className="w-full h-full object-contain bg-gray-200" onError={(e) => { (e.target as HTMLImageElement).src = "https://via.placeholder.com/400x200?text=Image+Not+Found"; }} />} </div> </div> ) : ( <div className="h-40 bg-gray-50 border-2 border-dashed rounded flex flex-col items-center justify-center text-gray-400 text-sm mb-2 gap-2"><div className="p-3 bg-gray-100 rounded-full"><Upload className="w-6 h-6 text-gray-300"/></div><span>ไม่มีไฟล์แนบ</span></div> )}
-          <label className="flex items-center gap-2 w-full p-2 border border-gray-300 rounded cursor-pointer hover:bg-blue-50 hover:border-blue-400 transition text-sm justify-center text-gray-700 font-medium bg-white shadow-sm"><Upload className="w-4 h-4 text-blue-600" /> {currentImage ? "เปลี่ยนไฟล์" : "อัปโหลดไฟล์"} <input type="file" className="hidden" accept={fieldName === 'policyFile' ? "image/*,application/pdf" : "image/*"} onChange={(e) => handleFileChange(e, fieldName)} /></label>
-      </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex justify-between items-center mb-3">
+                <span className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    {hasFile ? <CheckCircle2 className="w-4 h-4 text-green-500"/> : <AlertCircle className="w-4 h-4 text-slate-300"/>}
+                    {label}
+                </span>
+                {hasFile && <span className="text-[10px] bg-green-50 text-green-700 px-2 py-0.5 rounded-full border border-green-100">อัปโหลดแล้ว</span>}
+            </div>
+            
+            {extraInfo && <div className="mb-3">{extraInfo}</div>}
+
+            <div className="relative group w-full h-32 bg-slate-50 border-2 border-dashed border-slate-200 rounded-lg overflow-hidden flex items-center justify-center transition-colors hover:bg-slate-100 hover:border-slate-300">
+                {hasFile ? (
+                    <>
+                        {isPdf ? (
+                            <div className="flex flex-col items-center text-slate-500">
+                                <FileText className="w-10 h-10 text-red-500 mb-1" />
+                                <span className="text-xs font-medium">เอกสาร PDF</span>
+                            </div>
+                        ) : (
+                            <img src={currentImage} className="w-full h-full object-contain" alt="preview" onError={(e) => (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=Error'}/>
+                        )}
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 backdrop-blur-[2px]">
+                            <button onClick={() => window.open(currentImage)} className="p-2 bg-white rounded-full hover:scale-110 transition text-slate-700 shadow-lg" title="ดูไฟล์"><Eye className="w-4 h-4"/></button>
+                            <label className="p-2 bg-white rounded-full hover:scale-110 transition text-indigo-600 shadow-lg cursor-pointer" title="เปลี่ยนไฟล์">
+                                <Edit className="w-4 h-4"/>
+                                <input type="file" className="hidden" onChange={(e) => handleFileChange(e, fieldName)} />
+                            </label>
+                        </div>
+                    </>
+                ) : (
+                    <label className="flex flex-col items-center justify-center w-full h-full cursor-pointer text-slate-400 hover:text-indigo-500">
+                        <Upload className="w-8 h-8 mb-2 opacity-50"/>
+                        <span className="text-xs font-medium">คลิกเพื่ออัปโหลด</span>
+                        <input type="file" className="hidden" onChange={(e) => handleFileChange(e, fieldName)} />
+                    </label>
+                )}
+            </div>
+        </div>
     );
   };
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen font-sans">
-      <style jsx global>{`
-        .custom-date-input { position: relative; color: transparent; }
-        .custom-date-input::before { content: attr(data-date); position: absolute; left: 0.5rem; top: 50%; transform: translateY(-50%); color: #374151; pointer-events: none; font-size: 0.875rem; width: 80%; background-color: #f0fdf4; }
-        .custom-date-input[value=""]::before { content: "" !important; }
-        .custom-date-input[value=""] { color: #9ca3af; }
-        .custom-date-input::-webkit-calendar-picker-indicator { position: absolute; right: 0.5rem; z-index: 10; cursor: pointer; }
-      `}</style>
-      <h1 className="text-2xl font-bold mb-6 text-gray-800">จัดการรายการกรมธรรม์</h1>
-      {/* ... (Filter UI Code เหมือนเดิม) ... */}
-      <div className="bg-white p-5 rounded-lg shadow-md mb-6 space-y-4">
-         <div className="flex items-center gap-2 text-gray-700 font-semibold border-b pb-2 mb-2">
-             <Filter className="w-4 h-4"/> ตัวกรองข้อมูล
-         </div>
-         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-             <div><label className="text-xs text-gray-500 mb-1 block">ชื่อลูกค้า</label><div className="relative"><input type="text" className="w-full border rounded p-2 pl-8 outline-none text-sm" placeholder="ค้นหาชื่อ..." value={searchName} onChange={(e) => setSearchName(e.target.value)} /><Search className="w-4 h-4 absolute left-2.5 top-2.5 text-gray-400" /></div></div>
-             <div><label className="text-xs text-gray-500 mb-1 block">ตัวแทน</label><input type="text" className="w-full border rounded p-2 outline-none text-sm" placeholder="ค้นหาตัวแทน..." value={searchAgent} onChange={(e) => setSearchAgent(e.target.value)} /></div>
-             <div><label className="text-xs text-gray-500 mb-1 block">เลขกรมธรรม์</label><input type="text" className="w-full border rounded p-2 outline-none text-sm" placeholder="ค้นหาเลข..." value={searchPolicyNo} onChange={(e) => setSearchPolicyNo(e.target.value)} /></div>
-             <div><label className="text-xs text-gray-500 mb-1 block">บริษัทประกัน</label><select className="w-full border rounded p-2 bg-white outline-none text-sm" value={searchCompany} onChange={(e) => setSearchCompany(e.target.value)}>{INSURANCE_COMPANIES.map((c, i) => (<option key={i} value={c}>{c}</option>))}</select></div>
-             <div><label className="text-xs text-gray-500 mb-1 block">สถานะ</label><select className="w-full border rounded p-2 bg-white outline-none text-sm" value={searchStatus} onChange={(e) => setSearchStatus(e.target.value)}>{FILTER_STATUSES.map((status, i) => (<option key={i} value={status.value}>{status.label}</option>))}</select></div>
-         </div>
-         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2 border-t border-dashed">
-             <div>
-                <label className="text-xs text-gray-500 mb-1 block">ยี่ห้อรถ (Filter)</label>
-                <select className="w-full border rounded p-2 bg-white outline-none text-sm" value={filterCarBrand} onChange={handleFilterBrandChange}>
-                    <option value="">ทั้งหมด</option>
-                    {brandOptions.map((b, i) => <option key={i} value={b}>{b}</option>)}
-                </select>
-             </div>
-             <div>
-                <label className="text-xs text-gray-500 mb-1 block">รุ่นรถ (Filter)</label>
-                <select className="w-full border rounded p-2 bg-white outline-none text-sm disabled:bg-gray-100" value={filterCarModel} onChange={handleFilterModelChange} disabled={!filterCarBrand}>
-                    <option value="">ทั้งหมด</option>
-                    {filterModelList.map((m, i) => <option key={i} value={m}>{m}</option>)}
-                </select>
-             </div>
-             <div>
-                <label className="text-xs text-gray-500 mb-1 block">รุ่นย่อย (Filter)</label>
-                <select className="w-full border rounded p-2 bg-white outline-none text-sm disabled:bg-gray-100" value={filterCarSubModel} onChange={(e) => setFilterCarSubModel(e.target.value)} disabled={!filterCarModel}>
-                    <option value="">ทั้งหมด</option>
-                    {filterSubModelList.map((s, i) => <option key={i} value={s}>{s}</option>)}
-                </select>
-             </div>
-             <div className="flex flex-col">
-                <label className="text-xs text-gray-500 mb-1 block">เรียงลำดับวันที่</label>
-                <select className="w-full border rounded p-2 bg-white outline-none text-sm border-blue-200 text-blue-700 font-medium" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)}>
-                    <option value="desc">ใหม่ล่าสุด (Newest)</option>
-                    <option value="asc">เก่าที่สุด (Oldest)</option>
-                </select>
-             </div>
-         </div>
-      </div>
-
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-            <thead className="bg-gray-100 text-gray-600 uppercase text-sm font-semibold">
-                <tr>
-                    <th className="p-4 border-b">วันที่ทำรายการ</th>
-                    <th className="p-4 border-b">ลูกค้า</th>
-                    <th className="p-4 border-b">ตัวแทน</th>
-                    <th className="p-4 border-b">ข้อมูลรถยนต์</th> 
-                    <th className="p-4 border-b">แผนประกัน</th>
-                    <th className="p-4 border-b">เลขกรมธรรม์</th>
-                    <th className="p-4 border-b">สถานะ</th>
-                    <th className="p-4 border-b text-center">จัดการ</th>
-                </tr>
-            </thead>
-            <tbody>
-                {loading ? (
-                    <tr><td colSpan={8} className="p-6 text-center">Loading...</td></tr>
-                ) : (
-                    currentItems.map((item) => (
-                    <tr key={item._id} className="hover:bg-blue-50/50 border-b last:border-0 transition-colors">
-                        <td className="p-4 text-sm text-gray-600">{formatTableDate(item.createdAt)}</td>
-                        <td className="p-4"><div className="font-medium text-gray-800">{item.customer_id?.first_name} {item.customer_id?.last_name}</div><div className="text-xs text-gray-500">{item.customer_id?.username || "Guest"}</div></td>
-                        <td className="p-4 text-gray-600 text-sm">{typeof item.agent_id === 'object' ? `${(item.agent_id as Agent)?.first_name || '-'} ${(item.agent_id as Agent)?.last_name || ''}` : (item.agent_id as string) || "-"}</td>
-                        <td className="p-4">
-                            <div className="font-semibold text-gray-700">{item.car_id?.brand || "-"} {item.car_id?.carModel || ""}</div>
-                            {item.car_id?.subModel && (<div className="text-xs text-gray-500 mb-1 line-clamp-1" title={item.car_id?.subModel}>{item.car_id?.subModel}</div>)}
-                            {item.car_id?.year && (<span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded border border-gray-200">ปี {item.car_id?.year}</span>)}
-                        </td>
-                        <td className="p-4"><div className="font-semibold text-gray-700">{item.carInsurance_id?.insuranceBrand || "ไม่ระบุ"}</div><div className="text-xs text-gray-500 inline-block bg-gray-100 px-2 py-0.5 rounded mt-1">{item.carInsurance_id?.level || "-"}</div></td>
-                        <td className="p-4 font-mono text-sm">{item.policy_number ? <span className="text-blue-600 font-medium">{item.policy_number}</span> : <span className="text-gray-400 italic">รออนุมัติ</span>}</td>
-                        <td className="p-4"><span className={`px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap ${item.status === 'active' ? 'bg-green-100 text-green-700' : item.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : item.status === 'pending_payment' ? 'bg-orange-100 text-orange-700' : item.status === 'expired' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}`}>{item.status.replace('_', ' ')}</span></td>
-                        <td className="p-4 text-center"><button onClick={() => handleEditClick(item)} className="bg-white border border-blue-200 hover:bg-blue-50 text-blue-600 p-2 rounded-lg transition shadow-sm"><Edit className="w-4 h-4" /></button></td>
-                    </tr>
-                    ))
-                )}
-            </tbody>
-            </table>
+    <div className="min-h-screen bg-slate-50/50 p-6 md:p-8 font-sans">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <h1 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
+                    <FileText className="w-8 h-8 text-indigo-600" /> จัดการรายการกรมธรรม์
+                </h1>
+                <p className="text-slate-500 mt-1">ตรวจสอบและจัดการข้อมูลการซื้อประกันภัยทั้งหมด</p>
+            </div>
         </div>
-        {!loading && filteredData.length > 0 && (<div className="flex flex-col sm:flex-row justify-between items-center p-4 border-t bg-gray-50 gap-4"><span className="text-sm text-gray-500">แสดง {indexOfFirstItem + 1} ถึง {Math.min(indexOfLastItem, filteredData.length)} จาก {filteredData.length}</span><div className="flex items-center gap-2"><button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} className="p-2 border rounded-md hover:bg-white disabled:opacity-50"><ChevronLeft className="w-4 h-4" /></button><span className="text-sm">Page {currentPage} of {totalPages}</span><button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} className="p-2 border rounded-md hover:bg-white disabled:opacity-50"><ChevronRight className="w-4 h-4" /></button></div></div>)}
-      </div>
 
-      {isModalOpen && selectedItem && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex justify-center items-start md:items-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white w-full max-w-4xl rounded-xl shadow-2xl animate-fade-in my-8 relative flex flex-col max-h-[90vh]">
-            <div className="flex justify-between items-center p-6 border-b sticky top-0 bg-white z-10 rounded-t-xl">
-              <div><h2 className="text-xl font-bold text-gray-800">รายละเอียดกรมธรรม์</h2><p className="text-sm text-gray-500">ID: {selectedItem._id}</p></div>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 bg-gray-100 p-2 rounded-full"><X className="w-5 h-5" /></button>
+        {/* Filter Card */}
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 text-slate-700 font-medium pb-2 border-b border-slate-100">
+                <Filter className="w-4 h-4 text-slate-400" /> ตัวกรองเพิ่มเติม
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <div className="lg:col-span-1">
+                    <label className="text-xs text-slate-500 mb-1 block flex items-center gap-1"><User className="w-3 h-3"/> ค้นหาลูกค้า</label>
+                    <div className="relative"><Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" /><input type="text" className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition" placeholder="พิมพ์ชื่อลูกค้า..." value={searchName} onChange={(e) => setSearchName(e.target.value)} /></div>
+                </div>
+                <div className="lg:col-span-1">
+                    <label className="text-xs text-slate-500 mb-1 block flex items-center gap-1"><Briefcase className="w-3 h-3"/> ค้นหาตัวแทน</label>
+                    <div className="relative"><Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" /><input type="text" className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition" placeholder="พิมพ์ชื่อตัวแทน..." value={searchAgent} onChange={(e) => setSearchAgent(e.target.value)} /></div>
+                </div>
+                <div className="lg:col-span-1">
+                    <label className="text-xs text-slate-500 mb-1 block flex items-center gap-1"><FileText className="w-3 h-3"/> เลขกรมธรรม์</label>
+                    <input type="text" className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition" placeholder="ระบุเลขกรมธรรม์..." value={searchPolicyNo} onChange={(e) => setSearchPolicyNo(e.target.value)} />
+                </div>
+                <div className="lg:col-span-1">
+                    <label className="text-xs text-slate-500 mb-1 block">บริษัทประกัน</label>
+                    <select className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:ring-2 focus:ring-indigo-500/20 outline-none" value={searchCompany} onChange={(e) => setSearchCompany(e.target.value)}>{INSURANCE_COMPANIES.map((c, i) => <option key={i} value={c}>{c}</option>)}</select>
+                </div>
             </div>
 
-            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8 overflow-y-auto flex-grow">
-              <div className="space-y-6">
-                  <div className="space-y-4">
-                      <h3 className="font-semibold text-gray-800 flex items-center gap-2 pb-2 border-b"><Edit className="w-4 h-4 text-blue-600"/> แก้ไขข้อมูลผู้ซื้อและการประกัน</h3>
-                      {/* ... (Your existing Input fields) ... */}
-                      <div className="grid grid-cols-2 gap-2">
-                          <div><label className="text-xs text-gray-500">ชื่อจริง</label><input type="text" className="w-full border rounded p-1.5 text-sm outline-none" value={editForm.customer_first_name} onChange={(e) => setEditForm({...editForm, customer_first_name: e.target.value})} /></div>
-                          <div><label className="text-xs text-gray-500">นามสกุล</label><input type="text" className="w-full border rounded p-1.5 text-sm outline-none" value={editForm.customer_last_name} onChange={(e) => setEditForm({...editForm, customer_last_name: e.target.value})} /></div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                          <div><label className="text-xs text-gray-500">บริษัทประกัน</label><select className="w-full border rounded p-1.5 text-sm bg-white outline-none" value={editForm.insurance_brand} onChange={(e) => setEditForm({...editForm, insurance_brand: e.target.value})}>{INSURANCE_COMPANIES.filter(c => c !== "ทั้งหมด").map(c => (<option key={c} value={c}>{c}</option>))}</select></div>
-                          <div><label className="text-xs text-gray-500">ชั้นประกัน</label><select className="w-full border rounded p-1.5 text-sm bg-white outline-none" value={editForm.insurance_level} onChange={(e) => setEditForm({...editForm, insurance_level: e.target.value})}>{INSURANCE_LEVELS.map(level => (<option key={level} value={level}>{level}</option>))}</select></div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                          <div><label className="text-xs text-gray-500">ยี่ห้อรถ</label><select className="w-full border rounded p-1.5 text-sm bg-white outline-none" value={editForm.car_brand} onChange={handleEditBrandChange}><option value="">เลือกยี่ห้อ</option>{brandOptions.map((b, i) => <option key={i} value={b}>{b}</option>)}</select></div>
-                          <div><label className="text-xs text-gray-500">รุ่นรถ</label><select className="w-full border rounded p-1.5 text-sm bg-white outline-none disabled:bg-gray-100" value={editForm.car_model} onChange={handleEditModelChange} disabled={!editForm.car_brand}><option value="">เลือกรุ่น</option>{modelOptions.map((m, i) => <option key={i} value={m}>{m}</option>)}</select></div>
-                      </div>
-                      <div className="grid grid-cols-1 gap-2">
-                          <div><label className="text-xs text-gray-500">รุ่นย่อย</label><select className="w-full border rounded p-1.5 text-sm bg-white outline-none disabled:bg-gray-100" value={editForm.car_submodel} onChange={(e) => setEditForm({...editForm, car_submodel: e.target.value})} disabled={!editForm.car_model}><option value="">เลือกรุ่นย่อย</option>{subModelOptions.map((s, i) => <option key={i} value={s}>{s}</option>)}</select></div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                          <div><label className="text-xs text-gray-500">ปีรถ (ค.ศ.)</label><input type="text" className="w-full border rounded p-1.5 text-sm outline-none" value={editForm.car_year} onChange={(e) => setEditForm({...editForm, car_year: e.target.value})} placeholder="เช่น 2023" /></div>
-                          <div><label className="text-xs text-gray-500">สีรถ</label><input type="text" className="w-full border rounded p-1.5 text-sm outline-none" value={editForm.car_color} onChange={(e) => setEditForm({...editForm, car_color: e.target.value})} placeholder="เช่น ขาว" /></div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                          <div><label className="text-xs text-gray-500">ทะเบียนรถ</label><input type="text" className="w-full border rounded p-1.5 text-sm outline-none" value={editForm.car_registration} onChange={(e) => setEditForm({...editForm, car_registration: e.target.value})} /></div>
-                          <div><label className="text-xs text-gray-500">จังหวัด</label><select className="w-full border rounded p-1.5 text-sm bg-white outline-none" value={editForm.car_province} onChange={(e) => setEditForm({...editForm, car_province: e.target.value})}><option value="">เลือกจังหวัด</option>{THAI_PROVINCES.map((province) => (<option key={province} value={province}>{province}</option>))}</select></div>
-                      </div>
-                  </div>
-                  <hr className="border-gray-200"/>
-                  <div><label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2"><CreditCard className="w-4 h-4"/> รูปแบบการชำระเงิน</label><select value={editForm.paymentMethod} onChange={(e) => setEditForm({...editForm, paymentMethod: e.target.value})} className="w-full border-gray-300 rounded-lg shadow-sm p-2.5 bg-white outline-none"><option value="full">จ่ายเต็ม (Full Payment)</option><option value="installment">ผ่อนชำระ (Installment)</option></select></div>
-                  <hr className="border-gray-200"/>
-                  <div><label className="block text-sm font-semibold text-gray-700 mb-2">สถานะกรมธรรม์</label><select value={editForm.status} onChange={handleStatusChange} className="w-full border-gray-300 rounded-lg shadow-sm p-2.5 bg-white outline-none"><option value="pending">Pending (รอตรวจสอบ)</option><option value="pending_payment">Pending Payment (รอชำระเงิน)</option><option value="active">Active (คุ้มครองแล้ว)</option><option value="expired">Expired (หมดอายุ)</option><option value="rejected">Rejected (ปฏิเสธ)</option></select></div>
-
-                  {editForm.status === 'rejected' && (
-                      <div className="bg-red-50 p-3 rounded-lg border border-red-200 animate-fade-in mt-2">
-                          <label className="block text-sm font-semibold text-red-800 mb-2 flex items-center gap-2"><AlertCircle className="w-4 h-4"/> สาเหตุที่ปฏิเสธ (Reject Reason)</label>
-                          <textarea className="w-full border-red-300 rounded p-2 text-sm focus:ring-2 focus:ring-red-500 outline-none min-h-[80px]" placeholder="ระบุเหตุผล..." value={editForm.reject_reason} onChange={(e) => setEditForm({...editForm, reject_reason: e.target.value})}/>
-                      </div>
-                  )}
-
-                  {editForm.status === 'active' && (
-                      <div className="bg-green-50 p-3 rounded-lg border border-green-200 animate-fade-in">
-                          <label className="block text-sm font-semibold text-green-800 mb-2 flex items-center gap-2"><Calendar className="w-4 h-4"/> ระยะเวลาคุ้มครอง (Active)</label>
-                          <div className="grid grid-cols-2 gap-3">
-                              <div><label className="text-xs text-green-700 mb-1 block">วันที่เริ่มคุ้มครอง</label><input type="date" value={editForm.start_date} onChange={handleStartDateChange} className="custom-date-input w-full border-green-300 rounded p-2 text-sm focus:ring-2 focus:ring-green-500 outline-none bg-green-50" data-date={formatDisplayDate(editForm.start_date)} /></div>
-                              <div><label className="text-xs text-green-700 mb-1 block">วันที่สิ้นสุด</label><input type="date" value={editForm.end_date} onChange={handleEndDateChange} className="custom-date-input w-full border-green-300 rounded p-2 text-sm focus:ring-2 focus:ring-green-500 outline-none bg-green-50" data-date={formatDisplayDate(editForm.end_date)} /></div>
-                          </div>
-                      </div>
-                  )}
-
-                  <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">เลขกรมธรรม์จริง</label>
-                      <div className="relative">
-                          <input type="text" value={editForm.policy_number} onChange={(e) => setEditForm({...editForm, policy_number: e.target.value})} className="w-full border-gray-300 rounded-lg shadow-sm p-2.5 pr-10 outline-none font-mono" placeholder="เช่น P-123456789" />
-                          <button type="button" onClick={handleCopyPolicy} className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md hover:bg-gray-100 transition-colors" title="คัดลอกเลขกรมธรรม์">{isCopied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-400 hover:text-gray-600" />}</button>
-                      </div>
-                  </div>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="font-semibold text-gray-800 mb-4 pb-2 border-b">จัดการเอกสารแนบ</h3>
-                {renderImageUpload("รูปบัตรประชาชน (ลูกค้า)", "citizenCardImage", editForm.citizenCardImage)}
-                {renderImageUpload("รูปทะเบียนรถ (ลูกค้า)", "carRegistrationImage", editForm.carRegistrationImage)}
-                {editForm.paymentMethod === 'full' ? (renderImageUpload("หลักฐานการโอนเงิน (Admin)", "paymentSlipImage", editForm.paymentSlipImage)) : (<>{renderImageUpload("เอกสารการผ่อน (ลูกค้า)", "installmentDocImage", editForm.installmentDocImage)}{renderImageUpload("หนังสือยินยอม (ถ้ามี)", "consentFormImage", editForm.consentFormImage)}</>)}
-                {renderImageUpload("ไฟล์กรมธรรม์ฉบับจริง (PDF/รูปภาพ)", "policyFile", editForm.policyFile)}
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t border-slate-50">
+                <div className="md:col-span-3 flex gap-2">
+                    <div className="flex-1"><select className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:ring-2 focus:ring-indigo-500/20 outline-none" value={filterCarBrand} onChange={handleFilterBrandChange}><option value="">ทุกยี่ห้อ</option>{brandOptions.map((b, i) => <option key={i} value={b}>{b}</option>)}</select></div>
+                    <div className="flex-1"><select className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:bg-slate-50" value={filterCarModel} onChange={handleFilterModelChange} disabled={!filterCarBrand}><option value="">ทุกรุ่น</option>{filterModelList.map((m, i) => <option key={i} value={m}>{m}</option>)}</select></div>
+                    <div className="flex-1"><select className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:bg-slate-50" value={filterCarSubModel} onChange={(e) => setFilterCarSubModel(e.target.value)} disabled={!filterCarModel}><option value="">ทุกรุ่นย่อย</option>{filterSubModelList.map((s, i) => <option key={i} value={s}>{s}</option>)}</select></div>
+                </div>
+                <div><select className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:ring-2 focus:ring-indigo-500/20 outline-none" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)}><option value="desc">ใหม่ล่าสุด (Newest)</option><option value="asc">เก่าที่สุด (Oldest)</option></select></div>
             </div>
-
-            <div className="p-6 border-t bg-gray-50 flex justify-end gap-3 sticky bottom-0 rounded-b-xl">
-               <button onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-gray-700 hover:bg-gray-200 rounded-lg font-medium transition">ยกเลิก</button>
-               <button onClick={handleSave} className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium shadow-sm transition transform active:scale-95"><Save className="w-4 h-4" /> บันทึกการเปลี่ยนแปลง</button>
-            </div>
-          </div>
         </div>
-      )}
+
+        {/* Status Tabs */}
+        <div className="flex flex-wrap gap-2 overflow-x-auto pb-2">
+            {[
+                { id: 'all', label: 'ทั้งหมด', count: stats.all, badgeBg: 'bg-blue-100', badgeText: 'text-blue-700' },
+                { id: 'pending', label: 'รอตรวจสอบ', count: stats.pending, badgeBg: 'bg-yellow-100', badgeText: 'text-yellow-700' },
+                { id: 'pending_payment', label: 'รอชำระเงิน', count: stats.pending_payment, badgeBg: 'bg-orange-100', badgeText: 'text-orange-700' },
+                { id: 'active', label: 'คุ้มครองแล้ว', count: stats.active, badgeBg: 'bg-green-100', badgeText: 'text-green-700' },
+                { id: 'expired', label: 'ใกล้หมดอายุ', count: stats.expired, badgeBg: 'bg-purple-100', badgeText: 'text-purple-700' }, 
+                { id: 'rejected_expired', label: 'ไม่ผ่าน/หมดอายุ', count: stats.rejected + stats.expired, badgeBg: 'bg-red-100', badgeText: 'text-red-700' },
+            ].map((tab) => {
+                const isActive = searchStatus === tab.id;
+                return (
+                <button key={tab.id} onClick={() => { setSearchStatus(tab.id); setCurrentPage(1); }} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap border ${isActive ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'}`}>{tab.label}<span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${isActive ? 'bg-white/20 text-white' : `${tab.badgeBg} ${tab.badgeText}`}`}>{tab.count}</span></button>
+            )})}
+        </div>
+
+        {/* Table */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50/50">
+                 <div className="flex items-center gap-2">
+                    <ListFilter className="w-5 h-5 text-slate-400"/>
+                    <span className="font-bold text-slate-700">รายการกรมธรรม์</span>
+                    {!loading && <span className="ml-2 px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold border border-indigo-200">{filteredData.length.toLocaleString()} รายการ</span>}
+                 </div>
+                 {!loading && filteredData.length > 0 && <p className="text-xs text-slate-500">แสดงหน้า <span className="font-bold text-slate-700">{currentPage}</span> จาก {totalPages} ({((currentPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredData.length)})</p>}
+            </div>
+
+            <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                    <thead>
+                        <tr className="bg-white border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wider font-semibold">
+                            <th className="px-6 py-4">วันที่ทำรายการ</th>
+                            <th className="px-6 py-4">ลูกค้า</th>
+                            <th className="px-6 py-4">ตัวแทน</th>
+                            <th className="px-6 py-4">ข้อมูลรถยนต์</th>
+                            <th className="px-6 py-4">แผนประกัน</th>
+                            <th className="px-6 py-4 text-center">สถานะ</th>
+                            <th className="px-6 py-4 text-right">จัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {loading ? (
+                            <tr><td colSpan={7} className="p-12 text-center text-slate-400">กำลังโหลดข้อมูล...</td></tr>
+                        ) : currentItems.length === 0 ? (
+                            <tr><td colSpan={7} className="p-12 text-center text-slate-400">ไม่พบข้อมูลตามเงื่อนไข</td></tr>
+                        ) : (
+                            currentItems.map((item) => (
+                                <tr key={item._id} className="hover:bg-slate-50/80 transition-colors group">
+                                    <td className="px-6 py-4 text-sm text-slate-600"><div className="flex items-center gap-2"><Calendar className="w-4 h-4 text-slate-400"/> {formatTableDate(item.createdAt)}</div></td>
+                                    <td className="px-6 py-4"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200">{item.customer_id?.imgProfile_customer ? (<img src={item.customer_id.imgProfile_customer} alt="Profile" className="w-full h-full object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />) : (<User className="w-5 h-5 text-slate-400"/>)}</div><div><p className="font-medium text-slate-800 text-sm">{item.customer_id?.first_name} {item.customer_id?.last_name}</p><p className="text-xs text-slate-400">{item.customer_id?.username || "Guest"}</p></div></div></td>
+                                    <td className="px-6 py-4 text-sm text-slate-600">{typeof item.agent_id === 'object' ? `${(item.agent_id as Agent)?.first_name} ${(item.agent_id as Agent)?.last_name}` : (item.agent_id as string) || "-"}</td>
+                                    <td className="px-6 py-4"><div className="flex items-start gap-3"><div className="mt-1 text-slate-400"><Car className="w-4 h-4"/></div><div><p className="text-sm font-medium text-slate-700">{item.car_id?.brand} {item.car_id?.carModel}</p><div className="flex gap-2 mt-1"><span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border border-slate-200">{item.car_id?.year}</span><span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border border-slate-200">{item.car_id?.province}</span></div></div></div></td>
+                                    <td className="px-6 py-4"><p className="text-sm font-medium text-indigo-600">{item.carInsurance_id?.insuranceBrand}</p><span className="inline-block mt-1 text-[10px] px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded border border-indigo-100 font-medium">{item.carInsurance_id?.level}</span>{item.policy_number && <p className="text-xs text-slate-500 mt-1 font-mono">#{item.policy_number}</p>}</td>
+                                    <td className="px-6 py-4 text-center">{getStatusBadge(item.status)}</td>
+                                    <td className="px-6 py-4 text-right"><div className="flex items-center justify-end gap-2"><button onClick={() => handleEditClick(item)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="ดูรายละเอียด/แก้ไข"><Edit className="w-4 h-4" /></button></div></td>
+                                </tr>
+                            ))
+                        )}
+                    </tbody>
+                </table>
+            </div>
+            
+            {!loading && filteredData.length > 0 && (
+                <div className="px-6 py-4 border-t border-slate-200 bg-white flex flex-col sm:flex-row justify-between items-center gap-4">
+                    {/* ✅ Summary at Bottom */}
+                    <p className="text-xs text-slate-500">แสดงหน้า <span className="font-bold text-slate-700">{currentPage}</span> จาก {totalPages} ({((currentPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredData.length)})</p>
+                    <div className="flex gap-2"><button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-1.5 border rounded hover:bg-slate-50 disabled:opacity-50"><ChevronLeft className="w-4 h-4"/></button><button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-1.5 border rounded hover:bg-slate-50 disabled:opacity-50"><ChevronRight className="w-4 h-4"/></button></div>
+                </div>
+            )}
+        </div>
+
+        {/* --- Edit Modal with TABS --- */}
+        {isModalOpen && selectedItem && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                    <div className="px-6 py-4 border-b border-slate-100 bg-white sticky top-0 z-10">
+                        <div className="flex justify-between items-center mb-4">
+                            <div><h2 className="text-xl font-bold text-slate-800 flex items-center gap-2"><FileText className="w-6 h-6 text-indigo-600"/> รายละเอียดกรมธรรม์</h2><p className="text-xs text-slate-400 mt-0.5 font-mono ml-8">ID: {selectedItem._id}</p></div>
+                            <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition"><X className="w-6 h-6"/></button>
+                        </div>
+                        <div className="flex gap-6 border-b border-slate-100"><button onClick={() => setActiveModalTab('info')} className={`pb-2 text-sm font-semibold transition-all border-b-2 ${activeModalTab === 'info' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>ข้อมูลกรมธรรม์</button><button onClick={() => setActiveModalTab('documents')} className={`pb-2 text-sm font-semibold transition-all border-b-2 ${activeModalTab === 'documents' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>เอกสารแนบ</button></div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
+                        {activeModalTab === 'info' && (
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in">
+                                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                                    <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2 border-b pb-3"><User className="w-5 h-5 text-indigo-500"/> ข้อมูลผู้เอาประกันภัย</h3>
+                                    {/* ✅ แสดงช่องทางติดต่อ */}
+                                    <div className="mb-4 bg-slate-50 p-3 rounded-lg flex gap-4 text-xs text-slate-600 border border-slate-100">
+                                        <div className="flex items-center gap-1"><Phone className="w-3 h-3"/> {editForm.customer_phone || "-"}</div>
+                                        <div className="flex items-center gap-1"><Mail className="w-3 h-3"/> {editForm.customer_email || "-"}</div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-5">
+                                        <div><label className="form-label">ชื่อจริง</label><input type="text" className="form-input" value={editForm.customer_first_name} onChange={e => setEditForm({...editForm, customer_first_name: e.target.value})}/></div>
+                                        <div><label className="form-label">นามสกุล</label><input type="text" className="form-input" value={editForm.customer_last_name} onChange={e => setEditForm({...editForm, customer_last_name: e.target.value})}/></div>
+                                        <div><label className="form-label">บริษัทประกัน</label><select className="form-input" value={editForm.insurance_brand} onChange={e => setEditForm({...editForm, insurance_brand: e.target.value})}>{INSURANCE_COMPANIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+                                        <div><label className="form-label">ชั้นประกัน</label><select className="form-input" value={editForm.insurance_level} onChange={e => setEditForm({...editForm, insurance_level: e.target.value})}>{INSURANCE_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}</select></div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                                    <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2 border-b pb-3"><Car className="w-5 h-5 text-indigo-500"/> ข้อมูลรถยนต์</h3>
+                                    <div className="grid grid-cols-2 gap-5">
+                                        <div><label className="form-label">ยี่ห้อ</label><select className="form-input" value={editForm.car_brand} onChange={handleEditBrandChange}><option value="">เลือก</option>{brandOptions.map(b => <option key={b} value={b}>{b}</option>)}</select></div>
+                                        <div><label className="form-label">รุ่น</label><select className="form-input" value={editForm.car_model} onChange={handleEditModelChange}><option value="">เลือก</option>{modelOptions.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
+                                        <div><label className="form-label">รุ่นย่อย</label><select className="form-input" value={editForm.car_submodel} onChange={e => setEditForm({...editForm, car_submodel: e.target.value})}><option value="">เลือก</option>{subModelOptions.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+                                        <div><label className="form-label">ปี (ค.ศ.)</label><input type="text" className="form-input" value={editForm.car_year} onChange={e => setEditForm({...editForm, car_year: e.target.value})}/></div>
+                                        <div><label className="form-label">ทะเบียน</label><input type="text" className="form-input" value={editForm.car_registration} onChange={e => setEditForm({...editForm, car_registration: e.target.value})}/></div>
+                                        <div><label className="form-label">จังหวัด</label><select className="form-input" value={editForm.car_province} onChange={e => setEditForm({...editForm, car_province: e.target.value})}>{THAI_PROVINCES.map(p => <option key={p} value={p}>{p}</option>)}</select></div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm lg:col-span-2">
+                                    <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2 border-b pb-3"><ShieldCheck className="w-5 h-5 text-indigo-500"/> สถานะและความคุ้มครอง</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 h-full">
+                                                <label className="form-label mb-2">สถานะปัจจุบัน</label>
+                                                <select className="form-input bg-white font-medium text-slate-700 border-slate-300 focus:ring-2 focus:ring-indigo-100" value={editForm.status} onChange={handleStatusChange}>{FILTER_STATUSES.slice(1).map(s => <option key={s.value} value={s.value}>{s.label}</option>)}</select>
+                                            </div>
+                                        </div>
+                                        
+                                        <div>
+                                            {editForm.status === 'active' && (
+                                                <div className="bg-emerald-50 border border-emerald-100 p-5 rounded-lg animate-in slide-in-from-top-2">
+                                                    <div className="grid grid-cols-2 gap-5">
+                                                        <div><label className="text-xs text-emerald-800 font-semibold mb-1 block">วันเริ่มคุ้มครอง</label><input type="date" className="form-input border-emerald-300 focus:border-emerald-500 focus:ring-emerald-200" value={editForm.start_date} onChange={handleStartDateChange}/></div>
+                                                        <div><label className="text-xs text-emerald-800 font-semibold mb-1 block">วันสิ้นสุด</label><input type="date" className="form-input border-emerald-300 focus:border-emerald-500 focus:ring-emerald-200" value={editForm.end_date} onChange={handleEndDateChange}/></div>
+                                                        <div className="col-span-2">
+                                                            <label className="text-xs text-emerald-800 font-semibold mb-1 block">เลขกรมธรรม์</label>
+                                                            <div className="relative"><input type="text" className="form-input border-emerald-300 font-mono pr-10 text-lg tracking-wide" value={editForm.policy_number} onChange={e => setEditForm({...editForm, policy_number: e.target.value})} placeholder="XXX-XXXX-XXXX"/><button onClick={handleCopyPolicy} className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600 hover:text-emerald-800"><Copy className="w-5 h-5"/></button></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            
+                                            {editForm.status === 'rejected' && (
+                                                <div className="bg-red-50 border border-red-100 p-5 rounded-lg animate-in slide-in-from-top-2"><label className="text-xs text-red-800 font-semibold mb-1 block">ระบุสาเหตุที่ปฏิเสธ</label><textarea className="form-input border-red-300 focus:border-red-500 focus:ring-red-200 min-h-[100px]" value={editForm.reject_reason} onChange={e => setEditForm({...editForm, reject_reason: e.target.value})} placeholder="เช่น เอกสารไม่ชัดเจน, ข้อมูลไม่ถูกต้อง..."/></div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeModalTab === 'documents' && (
+                            <div className="animate-in fade-in">
+                                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm mb-6">
+                                    <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2 border-b pb-3"><Paperclip className="w-5 h-5 text-indigo-500"/> รายการเอกสาร</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                        {renderImageUpload("บัตรประชาชน", "citizenCardImage", editForm.citizenCardImage)}
+                                        {renderImageUpload("ทะเบียนรถ", "carRegistrationImage", editForm.carRegistrationImage)}
+                                        {/* ✅ แสดงช่องยอดชำระคู่กับสลิป */}
+                                        {editForm.paymentMethod === 'full' 
+                                            ? renderImageUpload("หลักฐานการโอนเงิน", "paymentSlipImage", editForm.paymentSlipImage, 
+                                                <div className="text-xs font-semibold text-slate-600 flex items-center gap-1 mb-2"><Banknote className="w-3 h-3 text-green-600"/> ยอดที่ต้องชำระ: <span className="text-green-600 font-bold">{editForm.premium_price?.toLocaleString()} บาท</span></div>
+                                              )
+                                            : <>{renderImageUpload("เอกสารการผ่อน", "installmentDocImage", editForm.installmentDocImage)}{renderImageUpload("หนังสือยินยอม", "consentFormImage", editForm.consentFormImage)}</>
+                                        }
+                                        {renderImageUpload("ไฟล์กรมธรรม์ (PDF)", "policyFile", editForm.policyFile)}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="px-6 py-4 border-t border-slate-100 bg-white flex justify-end gap-3 rounded-b-2xl shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                        <button onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium transition hover:border-slate-300">ยกเลิก</button>
+                        <button onClick={handleSave} className="px-6 py-2.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 font-medium shadow-lg shadow-indigo-200 transition flex items-center gap-2 transform active:scale-95"><Save className="w-4 h-4"/> บันทึกการเปลี่ยนแปลง</button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        <style jsx global>{`
+            .form-label { display: block; font-size: 0.85rem; color: #475569; margin-bottom: 0.35rem; font-weight: 500; }
+            .form-input { width: 100%; border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.6rem 0.8rem; font-size: 0.9rem; outline: none; transition: all; background-color: #fff; }
+            .form-input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1); }
+            .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+            .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+            .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        `}</style>
+      </div>
     </div>
   );
 }
