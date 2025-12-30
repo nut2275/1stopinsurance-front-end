@@ -30,19 +30,20 @@ const statusConfig: Record<InsuranceStatus, StatusDetails> = {
   active: {
     text: "กำลังใช้งาน",
     badgeColor: "bg-green-600",
-    borderColor: "border-amber-600",
+    borderColor: "border-amber-500",
     dateLabel: "หมดอายุ",
   },
+  // ✅ แก้ไข: เปลี่ยนเป็นสีส้ม เพื่อให้ต่างจากสีแดง
   expiring: {
     text: "ใกล้หมดอายุ",
-    badgeColor: "bg-red-600",
-    borderColor: "border-red-600",
+    badgeColor: "bg-orange-500", // สีพื้นหลังป้ายเป็นสีส้ม
+    borderColor: "border-amber-500",
     dateLabel: "หมดอายุ",
   },
   expired: {
     text: "หมดอายุแล้ว",
     badgeColor: "bg-gray-500",
-    borderColor: "border-gray-500",
+    borderColor: "border-amber-500",
     dateLabel: "หมดอายุ",
   },
   processing: {
@@ -51,17 +52,17 @@ const statusConfig: Record<InsuranceStatus, StatusDetails> = {
     borderColor: "border-amber-500",
     dateLabel: "อัปเดต",
   },
-  // ✅ แก้ไขตรงนี้: กำหนดสีขอบเป็นสีฟ้า (border-blue-600)
   pending_payment: {
     text: "รอการชำระเงิน",
-    badgeColor: "bg-blue-600", 
-    borderColor: "border-amber-600",
+    badgeColor: "bg-blue-600",
+    borderColor: "border-amber-500",
     dateLabel: "อัปเดต",
   },
+  // ✅ แก้ไข: ให้เป็นสีแดงเข้มชัดเจน
   rejected: {
     text: "ถูกปฏิเสธ",
-    badgeColor: "bg-red-600",
-    borderColor: "border-amber-600",
+    badgeColor: "bg-red-600", // สีแดง
+    borderColor: "border-amber-500", // สีขอบแดง
     dateLabel: "อัปเดต",
   },
 };

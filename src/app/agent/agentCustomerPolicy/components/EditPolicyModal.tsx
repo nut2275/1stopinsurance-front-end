@@ -2,20 +2,32 @@ import React, { useState, useEffect, ChangeEvent } from "react";
 import { 
     X, Shield, Car, FileText, Save, Copy, Check, User, 
     Calendar, AlertCircle, Phone, Mail, Banknote, 
-    CheckCircle2, Eye, Upload, Image as ImageIcon, 
-    Edit // ✅ 1. เพิ่ม Edit เข้ามาใน Import
+    CheckCircle2, Eye, Upload, Edit 
 } from "lucide-react";
 import { Purchase, PaymentMethod, PurchaseStatus } from "../types";
 import { addYearsToDate, formatDateForInput, getTodayString } from "../utils";
+import api from "@/services/api";
+import { jwtDecode } from "jwt-decode"; 
 
 // --- Type Definitions ---
 
-// ✅ 2. สร้าง Interface สำหรับข้อมูลที่ Backend Populate มา (เพื่อเลี่ยงการใช้ any)
+interface DecodedToken {
+    id: string;
+    role: string;
+}
+
 interface ExtendedCustomer {
+    _id: string;
     first_name: string;
     last_name: string;
     phone?: string;
     email?: string;
+}
+
+interface ExtendedAgent {
+    _id: string;
+    first_name: string;
+    last_name: string;
 }
 
 interface ExtendedInsurance {
@@ -77,10 +89,33 @@ interface EditPolicyModalProps {
 
 type TabKey = "general" | "car" | "documents";
 
+// Helper แปลงวันที่สำหรับแสดงผลใน Notification (DD/MM/YYYY)
+const formatDateNotify = (isoDate?: string) => {
+    if (!isoDate) return "-";
+    const date = new Date(isoDate);
+    if (isNaN(date.getTime())) return "-";
+    return date.toLocaleDateString("th-TH", { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
+// Helper แปลง Status เป็นภาษาไทย
+const getStatusLabel = (s: string) => {
+    const map: Record<string, string> = {
+        'pending': 'รอตรวจสอบ', 
+        'pending_payment': 'รอชำระเงิน',
+        'active': 'คุ้มครองแล้ว', 
+        'about_to_expire': 'ใกล้หมดอายุ',
+        'expired': 'หมดอายุ', 
+        'rejected': 'ถูกปฏิเสธ'
+    };
+    return map[s] || s;
+};
+
 const EditPolicyModal: React.FC<EditPolicyModalProps> = ({ isOpen, onClose, purchase, onSave }) => {
     const [activeTab, setActiveTab] = useState<TabKey>("general");
     const [isCopied, setIsCopied] = useState(false);
     
+    const [currentAgent, setCurrentAgent] = useState<{ fullName: string; id: string } | null>(null);
+
     const [form, setForm] = useState<EditFormState>({
         status: "pending", reject_reason: "", policy_number: "", start_date: "", end_date: "", paymentMethod: "full",
         customer_first_name: "", customer_last_name: "", customer_phone: "", customer_email: "",
@@ -89,12 +124,51 @@ const EditPolicyModal: React.FC<EditPolicyModalProps> = ({ isOpen, onClose, purc
         paymentSlipImage: "", citizenCardImage: "", carRegistrationImage: "", installmentDocImage: "", consentFormImage: "", policyFile: ""
     });
 
+    // ✅ ดึงข้อมูล Agent และตรวจสอบชื่อให้ถูกต้อง
+    useEffect(() => {
+        const fetchAgentProfile = async () => {
+            try {
+                // 1. ลองดึงจาก LocalStorage ก่อน
+                const storedAgent = localStorage.getItem("agentData");
+                if (storedAgent) {
+                    const agentObj = JSON.parse(storedAgent);
+                    if (agentObj.first_name && agentObj.first_name !== "ตัวแทน") {
+                        const fullName = `${agentObj.first_name} ${agentObj.last_name || ""}`.trim();
+                        setCurrentAgent({ fullName, id: agentObj._id || agentObj.id });
+                        return;
+                    }
+                }
+
+                // 2. ถ้าไม่มี หรือชื่อไม่สมบูรณ์ ให้ดึงจาก API
+                const token = localStorage.getItem("token");
+                if (token) {
+                    const decoded = jwtDecode<DecodedToken>(token);
+                    if (decoded && decoded.id) {
+                        const res = await api.get(`/agents/${decoded.id}`);
+                        const agentObj = res.data;
+                        const fullName = `${agentObj.first_name} ${agentObj.last_name || ""}`.trim();
+                        setCurrentAgent({ fullName, id: agentObj._id || agentObj.id });
+                        
+                        localStorage.setItem("agentData", JSON.stringify(agentObj));
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to fetch agent profile:", e);
+                // Fallback ถ้าหาไม่เจอจริงๆ
+                setCurrentAgent({ fullName: "เจ้าหน้าที่", id: "" });
+            }
+        };
+
+        if (isOpen) {
+            fetchAgentProfile();
+        }
+    }, [isOpen]);
+
     useEffect(() => {
         if (purchase) {
             const defaultStart = formatDateForInput(purchase.start_date) || getTodayString();
             const defaultEnd = formatDateForInput(purchase.end_date) || addYearsToDate(defaultStart, 1);
 
-            // ✅ 3. Cast Type ให้ถูกต้อง เพื่อดึง field ที่ Typescript มองไม่เห็นจาก Type หลัก
             const customer = purchase.customer_id as unknown as ExtendedCustomer;
             const insurance = purchase.carInsurance_id as unknown as ExtendedInsurance;
 
@@ -108,12 +182,12 @@ const EditPolicyModal: React.FC<EditPolicyModalProps> = ({ isOpen, onClose, purc
                 
                 customer_first_name: customer?.first_name || "",
                 customer_last_name: customer?.last_name || "",
-                customer_phone: customer?.phone || "-", // ตอนนี้ TS จะไม่แดงแล้ว
-                customer_email: customer?.email || "-", // ตอนนี้ TS จะไม่แดงแล้ว
+                customer_phone: customer?.phone || "-", 
+                customer_email: customer?.email || "-", 
                 
                 insurance_brand: insurance?.insuranceBrand || "",
                 insurance_level: insurance?.level || "",
-                insurance_premium: insurance?.premium || 0, // ตอนนี้ TS จะไม่แดงแล้ว
+                insurance_premium: insurance?.premium || 0, 
                 
                 car_brand: purchase.car_id?.brand || "",
                 car_model: purchase.car_id?.carModel || "",
@@ -148,10 +222,109 @@ const EditPolicyModal: React.FC<EditPolicyModalProps> = ({ isOpen, onClose, purc
     };
 
     const handleSaveLocal = async () => {
-        await onSave(purchase._id, form);
-        onClose();
+        try {
+            await onSave(purchase._id, form);
+
+            const changes: string[] = [];
+            // ✅ เปลี่ยนให้เป็น 'info' (สีฟ้า) เสมอ ตามที่ต้องการ
+            const notiType = 'info'; 
+
+            const compareField = (label: string, oldVal: string | undefined | null, newVal: string) => {
+                const o = (oldVal || "").trim();
+                const n = (newVal || "").trim();
+                if (o !== n) {
+                    if (!o && n) changes.push(`เพิ่ม${label}: "${n}"`);
+                    else changes.push(`แก้ไข${label}: จาก "${o || '-'}" เป็น "${n}"`);
+                }
+            };
+
+            const compareImage = (label: string, oldImg: string | undefined | null, newImg: string) => {
+                if (newImg && newImg !== (oldImg || "")) {
+                    if (!oldImg) changes.push(`อัปโหลด${label}ใหม่`);
+                    else changes.push(`เปลี่ยนไฟล์${label}`);
+                }
+            };
+
+            // เปรียบเทียบข้อมูล
+            if (form.status !== purchase.status) {
+                changes.push(`สถานะ: เปลี่ยนจาก "${getStatusLabel(purchase.status)}" เป็น "${getStatusLabel(form.status)}"`);
+            }
+
+            compareField("เลขกรมธรรม์", purchase.policy_number, form.policy_number);
+
+            const oldStart = formatDateForInput(purchase.start_date);
+            const newStart = form.start_date;
+            const oldEnd = formatDateForInput(purchase.end_date);
+            const newEnd = form.end_date;
+
+            if (oldStart !== newStart || oldEnd !== newEnd) {
+                changes.push(`ระยะเวลาคุ้มครอง: เปลี่ยนเป็น ${formatDateNotify(newStart)} ถึง ${formatDateNotify(newEnd)}`);
+            }
+
+            if (form.status === 'rejected') {
+                compareField("เหตุผลการปฏิเสธ", purchase.reject_reason, form.reject_reason);
+            }
+
+            compareImage("ไฟล์กรมธรรม์", purchase.policyFile, form.policyFile);
+            compareImage("สลิปโอนเงิน", purchase.paymentSlipImage, form.paymentSlipImage);
+            compareImage("บัตรประชาชน", purchase.citizenCardImage, form.citizenCardImage);
+            compareImage("ทะเบียนรถ", purchase.carRegistrationImage, form.carRegistrationImage);
+
+            if (changes.length === 0) {
+                onClose();
+                return;
+            }
+
+            // ✅ เตรียมข้อมูลแจ้งเตือน (ตัดคำว่า ตัวแทน ออกจาก Header เพื่อไม่ให้ซ้ำ)
+            const carReg = `${form.car_registration} ${form.car_province}`;
+            const header = `อัปเดตข้อมูลกรมธรรม์ (ทะเบียน ${carReg})`; // เอาคำว่า (ตัวแทน: ...) ออก
+            const body = changes.map(c => `- ${c}`).join("\n");
+            const fullMessage = `${header}\n${body}`;
+
+            // ✅ ข้อมูลผู้ส่ง (ชื่อนี้จะไปโผล่เป็นสีฟ้าใน Notification UI เอง)
+            const agentName = currentAgent?.fullName || "เจ้าหน้าที่";
+            const senderInfo = { 
+                name: agentName, 
+                role: "agent" 
+            };
+
+            const customerId = (purchase.customer_id as unknown as ExtendedCustomer)?._id;
+            if (customerId) {
+                await api.post("/api/notifications", {
+                    recipientType: 'customer',
+                    recipientId: customerId,
+                    message: fullMessage,
+                    type: notiType, // สีฟ้าเสมอ
+                    sender: senderInfo,
+                    relatedPurchaseId: purchase._id
+                });
+            }
+
+            // ส่งหา Agent (ป้องกันแจ้งเตือนตัวเอง)
+            const agentId = (purchase.agent_id as unknown as ExtendedAgent)?._id || (purchase.agent_id as string);
+            if (agentId && (typeof agentId === 'string' && agentId.length > 10)) {
+                 if (currentAgent?.id !== agentId) {
+                    await api.post("/api/notifications", {
+                        recipientType: 'agent',
+                        recipientId: agentId,
+                        message: `(ลูกค้า: ${form.customer_first_name}) ${fullMessage}`,
+                        type: notiType, // สีฟ้าเสมอ
+                        sender: senderInfo,
+                        relatedPurchaseId: purchase._id
+                    });
+                 }
+            }
+
+            onClose();
+
+        } catch (error) {
+            console.error("Error saving/notifying:", error);
+            alert("บันทึกข้อมูลสำเร็จ แต่ระบบแจ้งเตือนขัดข้อง");
+            onClose();
+        }
     };
 
+    // ... (ส่วน Render Image Upload และ UI Render เหมือนเดิมทุกประการ)
     const RenderImageUpload: React.FC<RenderImageUploadProps> = ({ label, currentImage, onFileChange, extraInfo }) => {
         const hasFile = !!currentImage;
         const isPdf = currentImage?.startsWith('data:application/pdf') || currentImage?.toLowerCase().endsWith('.pdf');
@@ -182,7 +355,6 @@ const EditPolicyModal: React.FC<EditPolicyModalProps> = ({ isOpen, onClose, purc
                             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 backdrop-blur-[2px]">
                                 <button onClick={() => window.open(currentImage)} className="p-2 bg-white rounded-full hover:scale-110 transition text-slate-700 shadow-lg" title="ดูไฟล์"><Eye className="w-4 h-4"/></button>
                                 <label className="p-2 bg-white rounded-full hover:scale-110 transition text-indigo-600 shadow-lg cursor-pointer" title="เปลี่ยนไฟล์">
-                                    {/* ✅ Edit ถูกเพิ่มใน Import แล้ว Error ตรงนี้จะหายไป */}
                                     <Edit className="w-4 h-4"/>
                                     <input type="file" className="hidden" onChange={onFileChange} accept="image/*,application/pdf" />
                                 </label>
@@ -306,7 +478,6 @@ const EditPolicyModal: React.FC<EditPolicyModalProps> = ({ isOpen, onClose, purc
                                 <div>
                                     <h3 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2 uppercase tracking-wide"><User className="w-4 h-4 text-indigo-500"/> ข้อมูลลูกค้า</h3>
                                     
-                                    {/* ✅ ข้อมูลติดต่อ */}
                                     <div className="mb-4 bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col gap-2">
                                         <div className="flex items-center gap-2 text-sm text-slate-600">
                                             <Phone className="w-4 h-4 text-slate-400"/> {form.customer_phone || "-"}
@@ -330,7 +501,6 @@ const EditPolicyModal: React.FC<EditPolicyModalProps> = ({ isOpen, onClose, purc
                                         <div className="grid grid-cols-2 gap-4">
                                             <div><label className="text-xs font-semibold text-slate-500 block mb-1.5">ประเภทแผน</label><input type="text" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-600" value={form.insurance_level} disabled /></div>
                                             
-                                            {/* ✅ ราคาเบี้ยประกัน */}
                                             <div>
                                                 <label className="text-xs font-semibold text-slate-500 block mb-1.5">เบี้ยประกัน</label>
                                                 <div className="relative">
@@ -373,7 +543,6 @@ const EditPolicyModal: React.FC<EditPolicyModalProps> = ({ isOpen, onClose, purc
                             <RenderImageUpload label="บัตรประชาชน" currentImage={form.citizenCardImage} onFileChange={(e) => handleFile(e, 'citizenCardImage')} />
                             <RenderImageUpload label="ทะเบียนรถ" currentImage={form.carRegistrationImage} onFileChange={(e) => handleFile(e, 'carRegistrationImage')} />
                             
-                            {/* ✅ แสดงยอดชำระคู่กับสลิป */}
                             {form.paymentMethod === 'full' ? 
                                 <RenderImageUpload 
                                     label="สลิปโอนเงิน" 
@@ -384,7 +553,6 @@ const EditPolicyModal: React.FC<EditPolicyModalProps> = ({ isOpen, onClose, purc
                                 : <div className="col-span-1 p-4 border border-dashed rounded-xl flex items-center justify-center text-sm text-slate-400">ลูกค้าเลือกผ่อนชำระ</div>
                             }
                             
-                            {/* แสดงเอกสารผ่อนชำระถ้ามี */}
                             {form.paymentMethod === 'installment' && (
                                 <>
                                     <RenderImageUpload label="เอกสารผ่อน" currentImage={form.installmentDocImage} onFileChange={(e) => handleFile(e, 'installmentDocImage')} />
