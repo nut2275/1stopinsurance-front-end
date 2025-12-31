@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import MenuAgent from '@/components/element/MenuAgent';
 import { 
   Loader2, Phone, Mail, Car, History, FileText, ArrowLeft, 
-  ShieldCheck, Copy, ExternalLink, Plus, LucideIcon
+  ShieldCheck, Copy, ExternalLink, LucideIcon, Eye
 } from 'lucide-react';
 
 import api from '@/services/api'; 
@@ -40,6 +40,15 @@ interface PurchaseHistory {
   createdAt: string;
   policy_number?: string;
   status: string;
+  
+  // ✅ เอกสารทั้งหมด
+  policyFile?: string;
+  citizenCardImage?: string;
+  carRegistrationImage?: string;
+  paymentSlipImage?: string;
+  installmentDocImage?: string;
+  consentFormImage?: string;
+
   carInsurance_id: {
     insuranceBrand: string;
     level: string;
@@ -57,7 +66,6 @@ interface CustomerStats {
   totalPolicies: number;
 }
 
-// Interface สำหรับ Response จาก API
 interface CustomerDetailResponse {
   profile: CustomerProfile;
   garage: CarData[];
@@ -65,7 +73,6 @@ interface CustomerDetailResponse {
   stats: CustomerStats;
 }
 
-// Interface สำหรับ Tab Configuration
 interface TabConfig {
   id: TabType;
   label: string;
@@ -77,13 +84,11 @@ const AgentCustomerDetailPage = () => {
   const params = useParams();
   const router = useRouter();
   
-  // Type Assertion สำหรับ ID (เนื่องจาก params อาจจะเป็น string | string[])
   const customerId = typeof params.id === 'string' ? params.id : '';
 
   const [loading, setLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<TabType>('garage');
   
-  // Data States (กำหนด Type ชัดเจน)
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
   const [garage, setGarage] = useState<CarData[]>([]);
   const [history, setHistory] = useState<PurchaseHistory[]>([]);
@@ -100,7 +105,6 @@ const AgentCustomerDetailPage = () => {
             return;
         }
 
-        // Generic Type <CustomerDetailResponse> จะช่วยบอกว่า res.data มีหน้าตาเป็นยังไง
         const res = await api.get<CustomerDetailResponse>(`/agents/customer-profile/${customerId}`, {
             headers: { Authorization: `Bearer ${token}` }
         });
@@ -114,7 +118,6 @@ const AgentCustomerDetailPage = () => {
         
       } catch (error: unknown) {
         console.error("Error fetching customer detail:", error);
-        // สามารถเพิ่ม Error Handling UI ได้ที่นี่
       } finally {
         setLoading(false);
       }
@@ -123,12 +126,33 @@ const AgentCustomerDetailPage = () => {
     fetchData();
   }, [customerId, router]);
 
-  const handleOfferInsurance = (car: CarData) => {
-    const queryParams = new URLSearchParams();
-    queryParams.append('brand', car.brand);
-    queryParams.append('model', car.carModel);
-    queryParams.append('year', car.year.toString());
-    router.push(`/agent?${queryParams.toString()}`);
+  // ✅ ฟังก์ชันเปิดหน้าดูเอกสาร
+  const handleViewDocument = (purchaseId: string) => {
+    if (purchaseId) {
+        router.push(`/agent/policy/${purchaseId}`);
+    } else {
+        alert("ไม่พบข้อมูลกรมธรรม์");
+    }
+  };
+
+  // ✅ Helper Function: หาข้อมูลการซื้อล่าสุดของรถคันนี้
+  const getLatestPurchaseForCar = (registration: string) => {
+    // หาอันล่าสุด (เรียงตาม createdAt ใหม่สุด หรือ index 0 ก็ได้ ถ้า API ส่งมาเรียงแล้ว)
+    // ตรงนี้สมมติว่าหาเจอตัวแรกที่ match registration
+    return history.find(h => h.car_id?.registration === registration);
+  };
+
+  // ✅ Helper Function: เช็คว่ามีไฟล์สักอย่างไหม?
+  const hasAnyDocument = (purchase?: PurchaseHistory) => {
+    if (!purchase) return false;
+    return !!(
+        purchase.policyFile || 
+        purchase.citizenCardImage || 
+        purchase.carRegistrationImage || 
+        purchase.paymentSlipImage || 
+        purchase.installmentDocImage || 
+        purchase.consentFormImage
+    );
   };
 
   const getStatusColor = (status: string): string => {
@@ -140,7 +164,6 @@ const AgentCustomerDetailPage = () => {
     }
   };
 
-  // Tabs Configuration Array (Strict Type)
   const tabs: TabConfig[] = [
     { id: 'garage', label: 'โรงรถ', count: garage.length, icon: Car },
     { id: 'history', label: 'ประวัติการซื้อ', count: history.length, icon: History },
@@ -168,7 +191,7 @@ const AgentCustomerDetailPage = () => {
       <div className="min-h-screen bg-slate-50/30 p-6 md:p-8 font-sans">
         <div className="max-w-7xl mx-auto space-y-6">
             
-            {/* Breadcrumb / Back */}
+            {/* Breadcrumb */}
             <nav className="flex items-center text-sm text-slate-500 mb-2">
                 <button onClick={() => router.back()} className="hover:text-indigo-600 transition-colors flex items-center gap-1">
                     <ArrowLeft className="w-4 h-4" /> ลูกค้าทั้งหมด
@@ -179,11 +202,9 @@ const AgentCustomerDetailPage = () => {
 
             {/* --- 1. Hero Header Card --- */}
             <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-slate-200 relative overflow-hidden">
-                {/* Background Decor */}
                 <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-gradient-to-bl from-indigo-50/80 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
 
                 <div className="flex flex-col lg:flex-row gap-8 relative z-10">
-                    
                     {/* Left: Profile Info */}
                     <div className="flex-1 flex flex-col md:flex-row gap-6 items-start">
                         <div className="relative">
@@ -286,56 +307,72 @@ const AgentCustomerDetailPage = () => {
                     {/* --- GARAGE TAB --- */}
                     {activeTab === 'garage' && (
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                            {garage.map((car) => (
-                                <div key={car._id} className="group bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all overflow-hidden flex flex-col h-full">
-                                    {/* Car Header */}
-                                    <div className="p-5 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 flex justify-between items-start">
-                                        <div>
-                                            <h3 className="font-bold text-lg text-slate-800">{car.brand}</h3>
-                                            <p className="text-slate-500 text-sm">{car.carModel}</p>
-                                        </div>
-                                        <div className="w-10 h-10 rounded-full bg-white border border-slate-100 flex items-center justify-center text-slate-400 shadow-sm group-hover:text-indigo-600 group-hover:scale-110 transition-all">
-                                            <Car className="w-5 h-5"/>
-                                        </div>
-                                    </div>
+                            {garage.map((car) => {
+                                const purchase = getLatestPurchaseForCar(car.registration);
+                                // ✅ ใช้ hasAnyDocument แทน hasDocument เพื่อเช็คว่ามีไฟล์ใดๆ ก็ตาม
+                                const canView = hasAnyDocument(purchase);
 
-                                    {/* Car Details */}
-                                    <div className="p-5 flex-1 space-y-4">
-                                        <div className="grid grid-cols-2 gap-4 text-sm">
+                                return (
+                                    <div key={car._id} className="group bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all overflow-hidden flex flex-col h-full">
+                                        {/* Car Header */}
+                                        <div className="p-5 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 flex justify-between items-start">
                                             <div>
-                                                <p className="text-slate-400 text-xs mb-1">ปีรถยนต์</p>
-                                                <p className="font-medium text-slate-700">{car.year}</p>
+                                                <h3 className="font-bold text-lg text-slate-800">{car.brand}</h3>
+                                                <p className="text-slate-500 text-sm">{car.carModel}</p>
                                             </div>
-                                            <div>
-                                                <p className="text-slate-400 text-xs mb-1">สี</p>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="w-3 h-3 rounded-full border border-slate-200 bg-gray-200 shadow-inner"></span>
-                                                    <p className="font-medium text-slate-700">{car.color || '-'}</p>
+                                            <div className="w-10 h-10 rounded-full bg-white border border-slate-100 flex items-center justify-center text-slate-400 shadow-sm group-hover:text-indigo-600 group-hover:scale-110 transition-all">
+                                                <Car className="w-5 h-5"/>
+                                            </div>
+                                        </div>
+
+                                        {/* Car Details */}
+                                        <div className="p-5 flex-1 space-y-4">
+                                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                                <div>
+                                                    <p className="text-slate-400 text-xs mb-1">ปีรถยนต์</p>
+                                                    <p className="font-medium text-slate-700">{car.year}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-slate-400 text-xs mb-1">สี</p>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="w-3 h-3 rounded-full border border-slate-200 bg-gray-200 shadow-inner"></span>
+                                                        <p className="font-medium text-slate-700">{car.color || '-'}</p>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
 
-                                        {/* License Plate Graphic */}
-                                        <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-center relative overflow-hidden">
-                                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 opacity-20"></div>
-                                            <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">ทะเบียนรถ</p>
-                                            <h4 className="text-xl font-bold text-slate-800 tracking-wider font-mono">{car.registration}</h4>
-                                            <p className="text-xs text-slate-500 mt-0.5">{car.province}</p>
+                                            {/* License Plate Graphic */}
+                                            <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-center relative overflow-hidden">
+                                                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 opacity-20"></div>
+                                                <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">ทะเบียนรถ</p>
+                                                <h4 className="text-xl font-bold text-slate-800 tracking-wider font-mono">{car.registration}</h4>
+                                                <p className="text-xs text-slate-500 mt-0.5">{car.province}</p>
+                                            </div>
+
+                                            {/* Action Button */}
+                                            <div className="p-4 pt-0 mt-auto">
+                                                {canView ? (
+                                                    <button 
+                                                        onClick={() => handleViewDocument(purchase!._id)}
+                                                        className="w-full py-2.5 bg-white border border-indigo-600 text-indigo-600 text-sm font-semibold rounded-xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm active:scale-[0.98] flex items-center justify-center gap-2"
+                                                    >
+                                                        <Eye className="w-4 h-4" />
+                                                        ดูเอกสารกรมธรรม์
+                                                    </button>
+                                                ) : (
+                                                    <button 
+                                                        disabled
+                                                        className="w-full py-2.5 bg-slate-50 border border-slate-200 text-slate-400 text-sm font-semibold rounded-xl cursor-not-allowed flex items-center justify-center gap-2"
+                                                    >
+                                                        <FileText className="w-4 h-4" />
+                                                        ยังไม่มีเอกสาร
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
-
-                                    {/* Action Button */}
-                                    <div className="p-4 pt-0 mt-auto">
-                                        <button 
-                                            onClick={() => handleOfferInsurance(car)}
-                                            className="w-full py-2.5 bg-white border border-indigo-600 text-indigo-600 text-sm font-semibold rounded-xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm active:scale-[0.98] flex items-center justify-center gap-2"
-                                        >
-                                            <Plus className="w-4 h-4" />
-                                            เสนอราคาประกันใหม่
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                             
                             {/* Empty State for Garage */}
                             {garage.length === 0 && (
@@ -344,7 +381,6 @@ const AgentCustomerDetailPage = () => {
                                         <Car className="w-8 h-8 opacity-40" />
                                     </div>
                                     <p className="font-medium text-slate-600">ยังไม่มีข้อมูลรถยนต์</p>
-                                    <p className="text-sm mt-1">เพิ่มข้อมูลรถเพื่อเริ่มเสนอราคา</p>
                                 </div>
                             )}
                         </div>
