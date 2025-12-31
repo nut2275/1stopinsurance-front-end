@@ -70,13 +70,13 @@ const RenewalList: React.FC<Props> = ({ customers }) => {
                     </div>
                     
                     {/* ปุ่มโทร (โผล่เมื่อ Hover หรือจอเล็ก) */}
-                    <button 
+                    {/* <button 
                         className="flex items-center gap-1 px-3 py-1.5 bg-green-50 text-green-700 text-xs font-bold rounded-lg hover:bg-green-100 transition-colors"
                         title="โทรหาลูกค้า"
                     >
                         <Phone className="w-3 h-3" />
                         <span className="hidden md:inline">โทรติดตาม</span>
-                    </button>
+                    </button> */}
                 </div>
                 </div>
              );
