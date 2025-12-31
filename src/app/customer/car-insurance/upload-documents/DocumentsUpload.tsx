@@ -7,6 +7,18 @@ import MenuLogined from "@/components/element/MenuLogined";
 import { CloudUpload, Delete, Description, DirectionsCar } from "@mui/icons-material";
 import api from "@/services/api"; 
 
+// ✅ เพิ่ม Interface สำหรับ Response ของ Customer และ Purchase
+interface CustomerData {
+    first_name?: string;
+    last_name?: string;
+    username?: string;
+}
+
+interface PurchaseResponse {
+    agent?: { id: string };
+    policy_number: string;
+}
+
 // ✅ Interface สำหรับข้อมูลการค้นหา
 interface SearchCriteria {
   carBrand?: string;
@@ -21,7 +33,6 @@ interface UploadCardProps {
   title: string;
   icon: React.ReactNode;
   preview: string | null;
-  // ✅ แก้ไข: รองรับ null เพราะ useRef เริ่มต้นเป็น null
   inputRef: React.RefObject<HTMLInputElement | null>; 
   onUpload: () => void;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -74,7 +85,6 @@ export default function UploadDocumentsPage() {
   
   const [searchData, setSearchData] = useState<SearchCriteria>({});
 
-  // ✅ useRef สามารถเป็น null ได้
   const idCardInputRef = useRef<HTMLInputElement>(null);
   const carRegInputRef = useRef<HTMLInputElement>(null);
 
@@ -102,7 +112,6 @@ export default function UploadDocumentsPage() {
     }
   };
 
-  // ✅ แก้ไข: inputRef รับค่า null ได้
   const removeFile = (
     setFile: React.Dispatch<React.SetStateAction<File | null>>,
     setPreview: React.Dispatch<React.SetStateAction<string | null>>,
@@ -123,33 +132,37 @@ export default function UploadDocumentsPage() {
       const idCardBase64 = await toBase64(idCardFile);
       const carRegBase64 = await toBase64(carRegFile);
 
-      // --- จัดการ customer_id ให้สะอาด ---
+      // --- จัดการ customer_id ---
       let rawCustomerId = localStorage.getItem("customerBuyId");
       let cleanCustomerId = "";
 
       if (rawCustomerId) {
-        // ลบเครื่องหมายคำพูดออก (ถ้ามี) เช่น ""123"" -> 123
         cleanCustomerId = rawCustomerId.replace(/^"|"$/g, ''); 
       }
       // --------------------------------
 
+      // ✅ 1. แก้ไข: ดึงข้อมูลลูกค้าล่าสุดจาก API แทนการใช้ localStorage
       let customerName = "ลูกค้า (ผ่านระบบ)";
-      try {
-        const customerStr = localStorage.getItem("customer");
-        if (customerStr) {
-          const customerObj = JSON.parse(customerStr);
-          if (customerObj && customerObj.first_name) {
-            customerName = `${customerObj.first_name} ${customerObj.last_name || ""}`.trim();
-          } else if (customerObj && customerObj.username) {
-            customerName = customerObj.username;
+      
+      if (cleanCustomerId) {
+          try {
+              // ยิง API ไปขอข้อมูลล่าสุด
+              const res = await api.get<CustomerData>(`/customers/${cleanCustomerId}`);
+              const user = res.data;
+              
+              if (user.first_name) {
+                  customerName = `${user.first_name} ${user.last_name || ""}`.trim();
+              } else if (user.username) {
+                  customerName = user.username;
+              }
+          } catch (e) {
+              console.error("Failed to fetch fresh customer data:", e);
+              // ถ้าดึงไม่ได้จริงๆ ค่อยกลับไปใช้ localStorage หรือค่า Default
           }
-        }
-      } catch (error) {
-        console.error("Error parsing customer data:", error);
       }
 
       const payload = {
-        customer_id: cleanCustomerId, // ✅ ใช้ ID ที่ clean แล้ว
+        customer_id: cleanCustomerId,
         agent_id: agentCode || null,
         plan_id: planId,
         brand: searchData.carBrand || "Unknown",
@@ -163,7 +176,8 @@ export default function UploadDocumentsPage() {
         carRegistrationImage: carRegBase64
       };
 
-      const response = await api.post("/purchase/insurance", payload);
+      // ✅ 2. ระบุ Type ให้ api.post
+      const response = await api.post<PurchaseResponse>("/purchase/insurance", payload);
 
       if (response.status === 201) {
         const { agent, policy_number } = response.data;
@@ -175,8 +189,9 @@ export default function UploadDocumentsPage() {
               recipientId: agent.id,
               message: `มีรายการสั่งซื้อใหม่: ${policy_number} (ทะเบียน ${registration} ${province}) รอการตรวจสอบ`,
               type: 'primary',
+              // ✅ 3. ใช้ customerName ที่ดึงมาสดๆ จาก API
               sender: {
-                name: customerName,
+                name: customerName, 
                 role: "customer"
               }
             });
