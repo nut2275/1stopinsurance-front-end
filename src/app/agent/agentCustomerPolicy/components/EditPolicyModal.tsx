@@ -382,7 +382,7 @@ const EditPolicyModal: React.FC<EditPolicyModalProps> = ({ isOpen, onClose, purc
                 <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
                     <div>
                         <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2"><Shield className="w-6 h-6 text-indigo-600"/> แก้ไขกรมธรรม์</h2>
-                        <p className="text-xs text-slate-400 mt-0.5 font-mono">Ref: {purchase._id}</p>
+                        {/* <p className="text-xs text-slate-400 mt-0.5 font-mono">Ref: {purchase._id}</p> */}
                     </div>
                     <button onClick={onClose} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200"><X className="w-5 h-5"/></button>
                 </div>
