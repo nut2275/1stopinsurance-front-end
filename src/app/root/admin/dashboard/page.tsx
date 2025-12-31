@@ -57,9 +57,11 @@ const AdminDashboardPage = () => {
 
       if (filter === 'this_year') {
            startDate = new Date(now.getFullYear(), 0, 1);
-      } else if (filter === 'this_month') {
-          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-      } else if (filter === 'last_30_days') {
+      } 
+      // else if (filter === 'this_month') {
+      //     startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      // } 
+      else if (filter === 'last_30_days') {
           startDate = new Date();
           startDate.setDate(now.getDate() - 30);
       } else if (filter === 'last_7_days') {
