@@ -56,7 +56,7 @@ type Purchase = {
   createdAt: string;
 };
 
-const INSURANCE_COMPANIES = ["ทั้งหมด", "มิตรแท้ประกันภัย", "วิริยะประกันภัย", "กรุงเทพประกันภัย", "ธนชาตประกันภัย", "เมืองไทยประกันภัย", "ทิพยประกันภัย"];
+const INSURANCE_COMPANIES = ["ทั้งหมด", "มิตรแท้ประกันภัย", "วิริยะประกันภัย", "กรุงเทพประกันภัย", "ธนชาตประกันภัย", "เมืองไทยประกันภัย", "ทิพยประกันภัย","สินมั่นคงประกันภัย"];
 const INSURANCE_LEVELS = ["ชั้น 1", "ชั้น 2+", "ชั้น 2", "ชั้น 3+", "ชั้น 3"];
 const ITEMS_PER_PAGE = 10;
 
@@ -475,7 +475,7 @@ export default function ManagePolicyPage() {
                                 <tr key={item._id} className="hover:bg-slate-50/80 transition-colors group">
                                     <td className="px-6 py-4 text-sm text-slate-600"><div className="flex items-center gap-2"><Calendar className="w-4 h-4 text-slate-400"/> {formatTableDate(item.createdAt)}</div></td>
                                     <td className="px-6 py-4"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200">{item.customer_id?.imgProfile_customer ? (<img src={item.customer_id.imgProfile_customer} alt="Profile" className="w-full h-full object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />) : (<User className="w-5 h-5 text-slate-400"/>)}</div><div><p className="font-medium text-slate-800 text-sm">{item.customer_id?.first_name} {item.customer_id?.last_name}</p><p className="text-xs text-slate-400">{item.customer_id?.username || "Guest"}</p></div></div></td>
-                                    <td className="px-6 py-4 text-sm text-slate-600">{typeof item.agent_id === 'object' ? `${(item.agent_id as Agent)?.first_name} ${(item.agent_id as Agent)?.last_name}` : (item.agent_id as string) || "-"}</td>
+                                    <td className="px-6 py-4 text-sm text-slate-600">{typeof item.agent_id === 'object' ? `${(item.agent_id as Agent)?.first_name} ${(item.agent_id as Agent)?.last_name}` : (item.agent_id as string) || "-"} </td>
                                     <td className="px-6 py-4"><div className="flex items-start gap-3"><div className="mt-1 text-slate-400"><Car className="w-4 h-4"/></div><div><p className="text-sm font-medium text-slate-700">{item.car_id?.brand} {item.car_id?.carModel}</p><div className="flex gap-2 mt-1"><span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border border-slate-200">{item.car_id?.year}</span><span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border border-slate-200">{item.car_id?.province}</span></div></div></div></td>
                                     <td className="px-6 py-4"><p className="text-sm font-medium text-indigo-600">{item.carInsurance_id?.insuranceBrand}</p><span className="inline-block mt-1 text-[10px] px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded border border-indigo-100 font-medium">{item.carInsurance_id?.level}</span>{item.policy_number && <p className="text-xs text-slate-500 mt-1 font-mono">#{item.policy_number}</p>}</td>
                                     <td className="px-6 py-4 text-center">{getStatusBadge(item.status)}</td>

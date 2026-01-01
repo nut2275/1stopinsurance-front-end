@@ -69,13 +69,13 @@ export default function InsuranceFormNew() {
     hasFireCoverage: false,
     hasFloodCoverage: false,
     hasTheftCoverage: false,
-    personalAccidentCoverageOut: 10000,
-    personalAccidentCoverageIn: 10000,
-    propertyDamageCoverage: 10000,
-    perAccidentCoverage: 10000,
-    fireFloodCoverage: 10000,
-    firstLossCoverage: 10000,
-    premium: 10000,
+    personalAccidentCoverageOut: 0,
+    personalAccidentCoverageIn: 0,
+    propertyDamageCoverage: 0,
+    perAccidentCoverage: 0,
+    fireFloodCoverage: 0,
+    firstLossCoverage: 0,
+    premium: 0,
     // status: "ใช้งาน", // Default status
   });
 
@@ -156,7 +156,7 @@ export default function InsuranceFormNew() {
         value={formData[name] as number}
         onChange={handleInputChange}
         className="form-input text-right"
-        placeholder="0"
+        placeholder="ระบุจำนวนเงินเป็นบาท"
       />
     </div>
   );
@@ -277,9 +277,6 @@ export default function InsuranceFormNew() {
 
               {/* --- Action Buttons --- */}
               <div className="flex justify-between items-center pt-6 border-t mt-8">
-                <Link href="/root/admin/insurances" className="text-red-600 font-semibold hover:text-red-800 transition flex items-center">
-                  ← ยกเลิกและย้อนกลับ
-                </Link>
                 <button 
                   type="submit" 
                   disabled={loading}

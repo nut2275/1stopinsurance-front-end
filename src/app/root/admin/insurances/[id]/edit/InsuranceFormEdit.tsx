@@ -155,7 +155,7 @@ export default function InsuranceFormEdit() {
   // --- Render Helpers ---
   const renderPriceInput = (name: keyof InsuranceForm, label: string) => (
     <div>
-      <label htmlFor={name} className="form-label text-gray-600">{label}</label>
+      <label htmlFor={`${name}`} className="form-label text-gray-600">{label}</label>
       <div className="relative">
         <input
           type="number"
@@ -167,7 +167,6 @@ export default function InsuranceFormEdit() {
           className="form-input text-right pr-12"
           placeholder="0"
         />
-        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm">บาท</span>
       </div>
     </div>
   );
@@ -190,15 +189,9 @@ export default function InsuranceFormEdit() {
       <div className="font-sans flex flex-col min-h-screen text-gray-800">
         <main className="flex-grow p-4 md:p-8 w-full max-w-5xl mx-auto">
           
-          <div className="mb-6">
-             <Link href="/root/admin/insurances" className="text-gray-500 hover:text-blue-600 transition text-sm font-medium flex items-center gap-1">
-               ← ย้อนกลับไปหน้าจัดการ
-             </Link>
-          </div>
 
           <div className="form-container">
             <h1 className="text-center text-3xl font-extrabold text-blue-900 mb-2">แก้ไขข้อมูลประกันภัย</h1>
-            <p className="text-center text-gray-500 mb-10 text-sm">รหัสรายการ: <span className="font-mono bg-gray-100 px-2 py-1 rounded text-gray-700">{id}</span></p>
 
             <form onSubmit={handleSubmit}>
               
@@ -277,17 +270,17 @@ export default function InsuranceFormEdit() {
                 <div className="md:col-span-2">
                    <h3 className="text-sm font-bold text-blue-800 uppercase tracking-wide mb-3">ความคุ้มครองผู้ประสบภัย (PA)</h3>
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {renderPriceInput('personalAccidentCoverageOut', 'PA บุคคลภายนอก')}
-                      {renderPriceInput('personalAccidentCoverageIn', 'PA บุคคลภายใน')}
+                      {renderPriceInput('personalAccidentCoverageOut', 'PA บุคคลภายนอก (บาท)')}
+                      {renderPriceInput('personalAccidentCoverageIn', 'PA บุคคลภายใน (บาท)')}
                    </div>
                 </div>
                 
                 <div className="md:col-span-2 border-t border-gray-200 my-2"></div>
 
-                {renderPriceInput('perAccidentCoverage', 'ความคุ้มครองต่ออุบัติเหตุ')}
-                {renderPriceInput('propertyDamageCoverage', 'ทรัพย์สินบุคคลภายนอก')}
-                {renderPriceInput('fireFloodCoverage', 'ทุนประกันอัคคีภัย/น้ำท่วม')}
-                {renderPriceInput('firstLossCoverage', 'ค่าเสียหายส่วนแรก (Excess)')}
+                {renderPriceInput('perAccidentCoverage', 'ความคุ้มครองต่ออุบัติเหตุ (บาท)')}
+                {renderPriceInput('propertyDamageCoverage', 'ทรัพย์สินบุคคลภายนอก (บาท)')}
+                {renderPriceInput('fireFloodCoverage', 'ทุนประกันอัคคีภัย/น้ำท่วม (บาท)')}
+                {renderPriceInput('firstLossCoverage', 'ค่าเสียหายส่วนแรก (Excess) (บาท)')}
               </div>
 
               {/* --- 4. ราคา (Highlight) --- */}
@@ -335,3 +328,4 @@ export default function InsuranceFormEdit() {
     </>
   );
 }
+

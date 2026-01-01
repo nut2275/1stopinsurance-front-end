@@ -81,7 +81,7 @@ export default function CarMasterManagePage() {
                 <TabButton 
                     isActive={activeTab === 'smart'} 
                     onClick={() => setActiveTab('smart')} 
-                    icon="🚀" 
+                    icon="+" 
                     label="เพิ่มแบบกลุ่ม" 
                     colorClass="text-sky-600" 
                     bgClass="bg-white"

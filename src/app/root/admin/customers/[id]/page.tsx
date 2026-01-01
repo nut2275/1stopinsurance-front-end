@@ -149,9 +149,9 @@ const AdminCustomerDetailPage = () => {
                                 <div className="w-full h-full bg-slate-200 flex items-center justify-center text-3xl font-bold text-slate-400">{profile.first_name[0]}</div>
                             )}
                         </div>
-                         <span className="inline-flex items-center gap-1 bg-slate-100 px-2 py-1 rounded text-xs font-medium text-slate-600">
+                         {/* <span className="inline-flex items-center gap-1 bg-slate-100 px-2 py-1 rounded text-xs font-medium text-slate-600">
                             ID: {profile._id.slice(-6).toUpperCase()} <Copy className="w-3 h-3 cursor-pointer"/>
-                        </span>
+                        </span> */}
                     </div>
 
                     {/* Info Form */}
