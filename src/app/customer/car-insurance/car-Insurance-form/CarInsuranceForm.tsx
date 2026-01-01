@@ -5,6 +5,19 @@ import { useRouter } from "next/navigation";
 import { CheckCircle } from "@mui/icons-material";
 import api from "@/services/api";
 
+interface CarQueryParams {
+  brand?: string;
+  model?: string;
+  year?: string;
+}
+interface PlanSearchParams {
+  year: string;
+  brand: string;
+  model: string;
+  subModel: string; // Backend ปกติน่าจะใช้ชื่อ subModel มากกว่า variant
+  level?: string;
+}
+
 export default function CarInsuranceForm() {
   const router = useRouter();
 
@@ -57,7 +70,7 @@ export default function CarInsuranceForm() {
     setVariant("");
     setVariants([]);
 
-    const params: any = { brand };
+    const params: CarQueryParams = { brand };
     if (year) params.year = year;
 
     // Use the correct endpoint matching server.ts
@@ -74,7 +87,7 @@ export default function CarInsuranceForm() {
     // Reset variant when model changes
     setVariant("");
 
-    const params: any = { brand, model };
+    const params: CarQueryParams = { brand, model };
     if (year) params.year = year;
 
     // Use the correct endpoint matching server.ts and route definition (/sub-models)

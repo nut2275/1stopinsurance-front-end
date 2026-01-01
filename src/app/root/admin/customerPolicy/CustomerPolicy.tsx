@@ -26,12 +26,12 @@ interface Customer {
     first_name: string; 
     last_name: string; 
     username: string;
-    email?: string; // ✅ เพิ่ม Email
-    phone?: string; // ✅ เพิ่ม Phone
+    email?: string; 
+    phone?: string; 
     imgProfile_customer?: string; 
 }
 interface Agent { _id: string; first_name: string; last_name: string; }
-interface CarInsurance { insuranceBrand: string; level: string; premium: number; } // ✅ เพิ่ม Premium
+interface CarInsurance { insuranceBrand: string; level: string; premium: number; }
 interface Car { brand: string; carModel?: string; model?: string; subModel?: string; sub_model?: string; year: string; color: string; registration: string; province: string; }
 
 type Purchase = {
@@ -65,6 +65,7 @@ const FILTER_STATUSES = [
     { value: "pending", label: "รอตรวจสอบ" },
     { value: "pending_payment", label: "รอชำระเงิน" },
     { value: "active", label: "คุ้มครองแล้ว" },
+    { value: "about_to_expire", label: "ใกล้หมดอายุ" },
     { value: "expired", label: "หมดอายุ" },
     { value: "rejected", label: "ไม่ผ่าน" },
 ];
@@ -82,12 +83,6 @@ const formatDateForInput = (isoDateString?: string) => {
     if (!isoDateString) return "";
     const date = new Date(isoDateString);
     return isNaN(date.getTime()) ? "" : date.toISOString().split('T')[0];
-};
-const formatDisplayDate = (isoString: string) => {
-    if (!isoString) return "";
-    const date = new Date(isoString);
-    if (isNaN(date.getTime())) return "";
-    return date.toLocaleDateString("th-TH", { year: 'numeric', month: '2-digit', day: '2-digit' });
 };
 const formatTableDate = (isoString: string) => {
     if (!isoString) return "-";
@@ -124,10 +119,11 @@ export default function ManagePolicyPage() {
   const [isCopied, setIsCopied] = useState(false);
   const [activeModalTab, setActiveModalTab] = useState<'info' | 'documents'>('info');
 
-  // Edit Form
+  // Edit Form Options
   const [brandOptions, setBrandOptions] = useState<string[]>([]); 
   const [modelOptions, setModelOptions] = useState<string[]>([]);
   const [subModelOptions, setSubModelOptions] = useState<string[]>([]);
+  const [yearOptions, setYearOptions] = useState<number[]>([]); // ✅ เพิ่ม State สำหรับปี
 
   const [editForm, setEditForm] = useState({
     status: "", reject_reason: "", policy_number: "", start_date: "", end_date: "",
@@ -136,7 +132,6 @@ export default function ManagePolicyPage() {
     customer_first_name: "", customer_last_name: "", insurance_brand: "", insurance_level: "", 
     car_brand: "", car_model: "", car_submodel: "", car_year: "", car_color: "", car_registration: "", car_province: "", 
     paymentMethod: "full",
-    // ✅ เพิ่ม State สำหรับแสดงผล (ไม่ได้แก้ไข)
     customer_phone: "", customer_email: "", premium_price: 0
   });
 
@@ -161,6 +156,16 @@ export default function ManagePolicyPage() {
   const fetchSubModelsGeneric = async (brand: string, model: string) => {
       if (!brand || !model) return [];
       try { return (await api.get(`/car-master/sub-models?brand=${encodeURIComponent(brand)}&model=${encodeURIComponent(model)}`)).data; } catch (err) { return []; }
+  };
+  // ✅ เพิ่มฟังก์ชันดึงปีแบบกรอง
+  const fetchYearsGeneric = async (brand: string, model: string, subModel: string) => {
+        if (!brand || !model || !subModel) return [];
+        try { 
+            // 👇 แก้ตรงนี้: เปลี่ยนจาก /years เป็น /years-filter
+            const url = `/car-master/years-filter?brand=${encodeURIComponent(brand)}&model=${encodeURIComponent(model)}&subModel=${encodeURIComponent(subModel)}`;
+            const res = await api.get(url);
+            return res.data; 
+        } catch (err) { return []; }
   };
 
   useEffect(() => { fetchData(); fetchBrands(); }, []);
@@ -206,7 +211,6 @@ export default function ManagePolicyPage() {
           pending_payment: purchases.filter(p => p.status === 'pending_payment').length,
           active: purchases.filter(p => p.status === 'active').length,
           about_to_expire: purchases.filter(p => p.status === 'about_to_expire').length,
-
           expired: purchases.filter(p => p.status === 'expired').length,
           rejected: purchases.filter(p => p.status === 'rejected').length,
       };
@@ -241,30 +245,56 @@ export default function ManagePolicyPage() {
       customer_first_name: item.customer_id?.first_name || "", customer_last_name: item.customer_id?.last_name || "",
       insurance_brand: item.carInsurance_id?.insuranceBrand || "", insurance_level: item.carInsurance_id?.level || "",
       car_brand: currentBrand, car_model: currentModel, car_submodel: currentSubModel,
-      car_year: item.car_id?.year || "", car_color: item.car_id?.color || "", 
+      car_year: item.car_id?.year?.toString() || "", 
+      car_color: item.car_id?.color || "", 
       car_registration: item.car_id?.registration || "", car_province: item.car_id?.province || "", 
       paymentMethod: item.paymentMethod || "full",
-      // ✅ Map ข้อมูลใหม่
       customer_phone: item.customer_id?.phone || "-",
       customer_email: item.customer_id?.email || "-",
       premium_price: item.carInsurance_id?.premium || 0
     });
 
+    // ✅ เพิ่ม Logic โหลด Dropdown ให้ครบถ้วน รวมถึงปี
     if (currentBrand) {
-        setModelOptions(await fetchModelsGeneric(currentBrand));
-        if (currentModel) setSubModelOptions(await fetchSubModelsGeneric(currentBrand, currentModel));
-    } else { setModelOptions([]); setSubModelOptions([]); }
+        const models = await fetchModelsGeneric(currentBrand);
+        setModelOptions(models);
+        
+        if (currentModel) {
+            const subModels = await fetchSubModelsGeneric(currentBrand, currentModel);
+            setSubModelOptions(subModels);
+
+            if (currentSubModel) {
+                // ✅ ดึงปีมารอ
+                const years = await fetchYearsGeneric(currentBrand, currentModel, currentSubModel);
+                setYearOptions(years);
+            }
+        }
+    } else { 
+        setModelOptions([]); setSubModelOptions([]); setYearOptions([]);
+    }
     setIsModalOpen(true);
   };
 
   const handleEditBrandChange = async (e: ChangeEvent<HTMLSelectElement>) => {
-      const val = e.target.value; setEditForm({ ...editForm, car_brand: val, car_model: "", car_submodel: "" }); 
-      setModelOptions(await fetchModelsGeneric(val)); setSubModelOptions([]); 
+      const val = e.target.value; 
+      setEditForm({ ...editForm, car_brand: val, car_model: "", car_submodel: "", car_year: "" }); 
+      setModelOptions(await fetchModelsGeneric(val)); 
+      setSubModelOptions([]); setYearOptions([]);
   };
   const handleEditModelChange = async (e: ChangeEvent<HTMLSelectElement>) => {
-      const val = e.target.value; setEditForm({ ...editForm, car_model: val, car_submodel: "" }); 
+      const val = e.target.value; 
+      setEditForm({ ...editForm, car_model: val, car_submodel: "", car_year: "" }); 
       setSubModelOptions(await fetchSubModelsGeneric(editForm.car_brand, val)); 
+      setYearOptions([]);
   };
+  // ✅ เพิ่ม Handler เปลี่ยนรุ่นย่อยแล้วไปโหลดปี
+  const handleEditSubModelChange = async (e: ChangeEvent<HTMLSelectElement>) => {
+      const val = e.target.value;
+      setEditForm({ ...editForm, car_submodel: val, car_year: "" });
+      const years = await fetchYearsGeneric(editForm.car_brand, editForm.car_model, val);
+      setYearOptions(years);
+  };
+
 
   const handleSave = async () => {
     if (!selectedItem) return;
@@ -315,9 +345,7 @@ export default function ManagePolicyPage() {
                 </span>
                 {hasFile && <span className="text-[10px] bg-green-50 text-green-700 px-2 py-0.5 rounded-full border border-green-100">อัปโหลดแล้ว</span>}
             </div>
-            
             {extraInfo && <div className="mb-3">{extraInfo}</div>}
-
             <div className="relative group w-full h-32 bg-slate-50 border-2 border-dashed border-slate-200 rounded-lg overflow-hidden flex items-center justify-center transition-colors hover:bg-slate-100 hover:border-slate-300">
                 {hasFile ? (
                     <>
@@ -485,7 +513,7 @@ export default function ManagePolicyPage() {
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in">
                                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                                     <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2 border-b pb-3"><User className="w-5 h-5 text-indigo-500"/> ข้อมูลผู้เอาประกันภัย</h3>
-                                    {/* ✅ แสดงช่องทางติดต่อ */}
+                                    
                                     <div className="mb-4 bg-slate-50 p-3 rounded-lg flex gap-4 text-xs text-slate-600 border border-slate-100">
                                         <div className="flex items-center gap-1"><Phone className="w-3 h-3"/> {editForm.customer_phone || "-"}</div>
                                         <div className="flex items-center gap-1"><Mail className="w-3 h-3"/> {editForm.customer_email || "-"}</div>
@@ -503,8 +531,17 @@ export default function ManagePolicyPage() {
                                     <div className="grid grid-cols-2 gap-5">
                                         <div><label className="form-label">ยี่ห้อ</label><select className="form-input" value={editForm.car_brand} onChange={handleEditBrandChange}><option value="">เลือก</option>{brandOptions.map(b => <option key={b} value={b}>{b}</option>)}</select></div>
                                         <div><label className="form-label">รุ่น</label><select className="form-input" value={editForm.car_model} onChange={handleEditModelChange}><option value="">เลือก</option>{modelOptions.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
-                                        <div><label className="form-label">รุ่นย่อย</label><select className="form-input" value={editForm.car_submodel} onChange={e => setEditForm({...editForm, car_submodel: e.target.value})}><option value="">เลือก</option>{subModelOptions.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
-                                        <div><label className="form-label">ปี (ค.ศ.)</label><input type="text" className="form-input" value={editForm.car_year} onChange={e => setEditForm({...editForm, car_year: e.target.value})}/></div>
+                                        <div><label className="form-label">รุ่นย่อย</label><select className="form-input" value={editForm.car_submodel} onChange={handleEditSubModelChange}><option value="">เลือก</option>{subModelOptions.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+                                        
+                                        {/* ✅ เปลี่ยนเป็น Dropdown ปี */}
+                                        <div>
+                                            <label className="form-label">ปี (ค.ศ.)</label>
+                                            <select className="form-input" value={editForm.car_year} onChange={e => setEditForm({...editForm, car_year: e.target.value})}>
+                                                <option value="">เลือก</option>
+                                                {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+                                            </select>
+                                        </div>
+
                                         <div><label className="form-label">ทะเบียน</label><input type="text" className="form-input" value={editForm.car_registration} onChange={e => setEditForm({...editForm, car_registration: e.target.value})}/></div>
                                         <div><label className="form-label">จังหวัด</label><select className="form-input" value={editForm.car_province} onChange={e => setEditForm({...editForm, car_province: e.target.value})}>{THAI_PROVINCES.map(p => <option key={p} value={p}>{p}</option>)}</select></div>
                                     </div>
@@ -550,7 +587,6 @@ export default function ManagePolicyPage() {
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                         {renderImageUpload("บัตรประชาชน", "citizenCardImage", editForm.citizenCardImage)}
                                         {renderImageUpload("ทะเบียนรถ", "carRegistrationImage", editForm.carRegistrationImage)}
-                                        {/* ✅ แสดงช่องยอดชำระคู่กับสลิป */}
                                         {editForm.paymentMethod === 'full' 
                                             ? renderImageUpload("หลักฐานการโอนเงิน", "paymentSlipImage", editForm.paymentSlipImage, 
                                                 <div className="text-xs font-semibold text-slate-600 flex items-center gap-1 mb-2"><Banknote className="w-3 h-3 text-green-600"/> ยอดที่ต้องชำระ: <span className="text-green-600 font-bold">{editForm.premium_price?.toLocaleString()} บาท</span></div>
