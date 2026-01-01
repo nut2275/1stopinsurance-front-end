@@ -205,6 +205,8 @@ export default function ManagePolicyPage() {
           pending: purchases.filter(p => p.status === 'pending').length,
           pending_payment: purchases.filter(p => p.status === 'pending_payment').length,
           active: purchases.filter(p => p.status === 'active').length,
+          about_to_expire: purchases.filter(p => p.status === 'about_to_expire').length,
+
           expired: purchases.filter(p => p.status === 'expired').length,
           rejected: purchases.filter(p => p.status === 'rejected').length,
       };
@@ -290,7 +292,8 @@ export default function ManagePolicyPage() {
           case 'pending': return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-800 border border-yellow-200">● รอตรวจสอบ</span>;
           case 'pending_payment': return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-800 border border-orange-200">● รอชำระเงิน</span>;
           case 'active': return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800 border border-green-200">● คุ้มครองแล้ว</span>;
-          case 'expired': return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200">● หมดอายุ</span>;
+          case 'about_to_expire': return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200">● ใกล้หมดอายุ</span>;
+          case 'expired': return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-slate-200 text-slate-600 border border-slate-300">● หมดอายุ</span>;
           case 'rejected': return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-200">● ไม่ผ่าน</span>;
           default: return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600">● {status}</span>;
       }
@@ -401,7 +404,7 @@ export default function ManagePolicyPage() {
                 { id: 'pending', label: 'รอตรวจสอบ', count: stats.pending, badgeBg: 'bg-yellow-100', badgeText: 'text-yellow-700' },
                 { id: 'pending_payment', label: 'รอชำระเงิน', count: stats.pending_payment, badgeBg: 'bg-orange-100', badgeText: 'text-orange-700' },
                 { id: 'active', label: 'คุ้มครองแล้ว', count: stats.active, badgeBg: 'bg-green-100', badgeText: 'text-green-700' },
-                { id: 'expired', label: 'ใกล้หมดอายุ', count: stats.expired, badgeBg: 'bg-purple-100', badgeText: 'text-purple-700' }, 
+                { id: 'about_to_expire', label: 'ใกล้หมดอายุ', count: stats.about_to_expire, badgeBg: 'bg-purple-100', badgeText: 'text-purple-700' }, 
                 { id: 'rejected_expired', label: 'ไม่ผ่าน/หมดอายุ', count: stats.rejected + stats.expired, badgeBg: 'bg-red-100', badgeText: 'text-red-700' },
             ].map((tab) => {
                 const isActive = searchStatus === tab.id;
@@ -471,7 +474,7 @@ export default function ManagePolicyPage() {
                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                     <div className="px-6 py-4 border-b border-slate-100 bg-white sticky top-0 z-10">
                         <div className="flex justify-between items-center mb-4">
-                            <div><h2 className="text-xl font-bold text-slate-800 flex items-center gap-2"><FileText className="w-6 h-6 text-indigo-600"/> รายละเอียดกรมธรรม์</h2><p className="text-xs text-slate-400 mt-0.5 font-mono ml-8">ID: {selectedItem._id}</p></div>
+                            <div><h2 className="text-xl font-bold text-slate-800 flex items-center gap-2"><FileText className="w-6 h-6 text-indigo-600"/> รายละเอียดกรมธรรม์</h2></div>
                             <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition"><X className="w-6 h-6"/></button>
                         </div>
                         <div className="flex gap-6 border-b border-slate-100"><button onClick={() => setActiveModalTab('info')} className={`pb-2 text-sm font-semibold transition-all border-b-2 ${activeModalTab === 'info' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>ข้อมูลกรมธรรม์</button><button onClick={() => setActiveModalTab('documents')} className={`pb-2 text-sm font-semibold transition-all border-b-2 ${activeModalTab === 'documents' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>เอกสารแนบ</button></div>

@@ -12,12 +12,40 @@ export const THAI_PROVINCES = [
 export const INSURANCE_COMPANIES = ["ทั้งหมด", "มิตรแท้ประกันภัย", "วิริยะประกันภัย", "กรุงเทพประกันภัย", "ธนชาตประกันภัย", "เมืองไทยประกันภัย", "ทิพยประกันภัย"];
 
 export const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
-    pending: { label: "รอตรวจสอบ", color: "bg-yellow-50 text-yellow-700 border-yellow-200", dot: "bg-yellow-500" },
-    pending_payment: { label: "รอชำระเงิน", color: "bg-orange-50 text-orange-700 border-orange-200", dot: "bg-orange-500" },
-    active: { label: "คุ้มครองแล้ว", color: "bg-green-50 text-green-700 border-green-200", dot: "bg-green-500" },
-    about_to_expire: { label: "ใกล้หมดอายุ", color: "bg-purple-50 text-purple-700 border-purple-200", dot: "bg-purple-500" },
-    expired: { label: "หมดอายุ", color: "bg-red-50 text-red-700 border-red-200", dot: "bg-red-500" },
-    rejected: { label: "ไม่ผ่าน/ปฏิเสธ", color: "bg-slate-100 text-slate-500 border-slate-200", dot: "bg-slate-400" },
+    pending: { 
+        label: "รอตรวจสอบ", 
+        color: "bg-yellow-50 text-yellow-700 border-yellow-200", 
+        dot: "bg-yellow-500" 
+    },
+    pending_payment: { 
+        label: "รอชำระเงิน", 
+        color: "bg-orange-50 text-orange-700 border-orange-200", 
+        dot: "bg-orange-500" 
+    },
+    active: { 
+        label: "คุ้มครองแล้ว", 
+        color: "bg-green-50 text-green-700 border-green-200", 
+        dot: "bg-green-500" 
+    },
+    about_to_expire: { 
+        label: "ใกล้หมดอายุ", 
+        color: "bg-purple-50 text-purple-700 border-purple-200", 
+        dot: "bg-purple-500" 
+    },
+    
+    // ✅ Expired = สีเทา (จบแล้ว เป็นอดีต)
+    expired: { 
+        label: "หมดอายุ", 
+        color: "bg-slate-100 text-slate-500 border-slate-200", 
+        dot: "bg-slate-400" 
+    },
+    
+    // ✅ Rejected = สีแดง (มีปัญหา/ปฏิเสธ)
+    rejected: { 
+        label: "ไม่ผ่าน", 
+        color: "bg-red-50 text-red-700 border-red-200", 
+        dot: "bg-red-500" 
+    },
 };
 
 export const getStatusConfig = (status: string) => {
