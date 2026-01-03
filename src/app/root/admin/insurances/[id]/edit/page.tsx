@@ -5,7 +5,7 @@ import MenuAdmin from '@/components/element/MenuAdmin'
 function page() {
   return (
     <div>
-      <MenuAdmin activePage='/root/admin/insurances/edit'/>
+      <MenuAdmin activePage='/root/admin/insurances'/>
       <InsuranceFormEdit />
     </div>
   )

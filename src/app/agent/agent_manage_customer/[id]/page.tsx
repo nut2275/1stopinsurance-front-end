@@ -192,13 +192,13 @@ const AgentCustomerDetailPage = () => {
         <div className="max-w-7xl mx-auto space-y-6">
             
             {/* Breadcrumb */}
-            <nav className="flex items-center text-sm text-slate-500 mb-2">
+            {/* <nav className="flex items-center text-sm text-slate-500 mb-2">
                 <button onClick={() => router.back()} className="hover:text-indigo-600 transition-colors flex items-center gap-1">
                     <ArrowLeft className="w-4 h-4" /> ลูกค้าทั้งหมด
                 </button>
                 <span className="mx-2">/</span>
                 <span className="text-slate-800 font-medium">รายละเอียดลูกค้า</span>
-            </nav>
+            </nav> */}
 
             {/* --- 1. Hero Header Card --- */}
             <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-slate-200 relative overflow-hidden">
@@ -229,11 +229,11 @@ const AgentCustomerDetailPage = () => {
                                 <h1 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight">
                                     {profile.first_name} {profile.last_name}
                                 </h1>
-                                <p className="text-slate-500 text-sm flex items-center gap-2 mt-1">
+                                {/* <p className="text-slate-500 text-sm flex items-center gap-2 mt-1">
                                     <span className="inline-flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded text-xs font-medium text-slate-600">
                                         Customer ID: {profile._id.slice(-6).toUpperCase()} <Copy className="w-3 h-3 cursor-pointer hover:text-indigo-600"/>
                                     </span>
-                                </p>
+                                </p> */}
                             </div>
 
                             <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-600 pt-1">
