@@ -20,7 +20,7 @@ interface DecodedToken {
 
 const navLinks = [
   { href: "/customer/car-insurance/car-Insurance-form", label: "ประกันรถยนต์" },
-  { href: "/about", label: "เกี่ยวกับเรา" },
+  { href: "/customer/about", label: "เกี่ยวกับเรา" },
   { href: "#footer", label: "ติดต่อเรา" },
   { href: "/customer/profile", label: "กรมธรรม์ของฉัน" }, // แก้คำผิด กรมธรรม
 ];
