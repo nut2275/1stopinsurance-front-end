@@ -12,6 +12,8 @@ import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import { jwtDecode } from "jwt-decode";
 import MenuAgent from "@/components/element/MenuAgent";
+import { routesAgentsSession } from '@/routes/session';
+import { useRouter } from "next/navigation";
 
 // --- Types ---
 interface DecodedToken {
@@ -44,6 +46,7 @@ export default function AgentProfilePage() {
   const [agent, setAgent] = useState<Agent | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
   
   // State สำหรับโหมดแก้ไข
   const [isEditing, setIsEditing] = useState<boolean>(false);
@@ -61,14 +64,14 @@ export default function AgentProfilePage() {
     const fetchAgentData = async () => {
       try {
         setLoading(true);
-        const token = localStorage.getItem("token");
-
-        if (!token) throw new Error("ไม่พบ Token กรุณาเข้าสู่ระบบใหม่");
-
-        const decoded = jwtDecode<DecodedToken>(token);
+        const session = routesAgentsSession();
+        if (!session) {
+           router.push("/agent/login"); 
+           throw new Error("ไม่พบ Token กรุณาเข้าสู่ระบบใหม่");
+        }
         
-        if (decoded && decoded.id) {
-          const response = await api.get<Agent>(`/agents/${decoded.id}`);
+        if (session && session.id) {
+          const response = await api.get<Agent>(`/agents/${session.id}`);
           setAgent(response.data);
           
           // Set ค่าเริ่มต้นให้ Form

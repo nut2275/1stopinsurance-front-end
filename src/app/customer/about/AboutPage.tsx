@@ -55,7 +55,7 @@ export default function AboutPage() {
           </h1>
           <p className="text-lg md:text-2xl text-blue-100 max-w-3xl mx-auto font-light leading-relaxed animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-150">
             เราคือแพลตฟอร์มประกันภัยรถยนต์ยุคใหม่ ที่รวบรวมทุกความคุ้มครองไว้ในที่เดียว 
-            เพื่อให้คุณ "ครบ จบ เรื่องประกัน" ได้ง่ายๆ เพียงปลายนิ้ว
+            เพื่อให้คุณ &quot;ครบ จบ เรื่องประกัน&quot; ได้ง่ายๆ เพียงปลายนิ้ว
           </p>
         </div>
         {/* Curve Divider */}
@@ -77,7 +77,7 @@ export default function AboutPage() {
               ทำไมเราถึงสร้าง <br/> <span className="text-indigo-600">1StopInsurance?</span>
             </h2>
             <p className="text-slate-600 text-lg leading-relaxed">
-              เราเริ่มต้นด้วยความเชื่อที่ว่า "การซื้อประกันรถยนต์ไม่ควรเป็นเรื่องยุ่งยาก" 
+              เราเริ่มต้นด้วยความเชื่อที่ว่า &quot;การซื้อประกันรถยนต์ไม่ควรเป็นเรื่องยุ่งยาก&quot;
               ในอดีต การเปรียบเทียบราคา การติดต่อตัวแทน หรือการจัดการเอกสารเป็นเรื่องที่ซับซ้อนและใช้เวลา
             </p>
             <p className="text-slate-600 text-lg leading-relaxed">
@@ -106,7 +106,7 @@ export default function AboutPage() {
                 {/* <Image src="/about-image.jpg" alt="Our Team" fill className="object-cover" /> */}
             </div>
             <div className="absolute -bottom-6 -left-6 bg-white p-6 rounded-2xl shadow-xl border border-slate-100 max-w-xs">
-                <p className="font-bold text-indigo-600 text-xl">"ประกันภัยที่เข้าใจคุณ"</p>
+                <p className="font-bold text-indigo-600 text-xl">&quot;ประกันภัยที่เข้าใจคุณ&quot;</p>
                 <p className="text-slate-500 text-sm mt-1">พันธกิจหลักของเราในการดูแลลูกค้าทุกคน</p>
             </div>
           </div>

@@ -18,6 +18,7 @@ import DateFilter from './components/DateFilter';
 import SalesTrendChart from './components/SalesTrendChart';
 
 import MenuAgent from '@/components/element/MenuAgent';
+import { routesAgentsSession } from '@/routes/session'; 
 
 // ✅ สร้าง Interface สำหรับ Token เพื่อเลี่ยง any
 interface DecodedToken {
@@ -46,25 +47,18 @@ const AgentDashboard = () => {
     try {
       setLoading(true);
 
-      // ---------------------------------------------------------
-      // ✅ 1. ดึง Token และ Decode หา Agent ID (Dynamic 100%)
-      // ---------------------------------------------------------
-      const token = localStorage.getItem("token");
-
-      if (!token) {
-         // ถ้าไม่มี Token ให้ดีดกลับหน้า Login
-         console.error("ไม่พบ Token กรุณาเข้าสู่ระบบใหม่");
-         router.push("/login"); 
+      // ดึงข้อมูลจาก localStorage และถอดรหัส Token
+      const session = routesAgentsSession();
+      if (!session) {
+         router.push("/agent/login");
          return;
       }
-
-      // Decode Token (ระบุ Type เพื่อไม่ใช้ any)
-      const decoded = jwtDecode<DecodedToken>(token);
-      const myAgentId = decoded.id; // ✨ ได้ ID จริงมาใช้งานแล้ว!
+      const myAgentId = session.id; // ✨ ได้ ID จริงมาใช้งานแล้ว!
 
       if (!myAgentId) {
           throw new Error("Token ไม่ถูกต้อง: ไม่พบ ID ผู้ใช้งาน");
       }
+
 
       // ---------------------------------------------------------
       // ✅ 2. เตรียม Query Params (Filter วันที่)
@@ -97,7 +91,7 @@ const AgentDashboard = () => {
       const res = await axios.get(
         `http://localhost:5000/purchase/agent/customer-stats/${myAgentId}${queryParams}`,
         {
-            headers: { Authorization: `Bearer ${token}` } // ส่ง Token ไปยืนยันตัวตนกับ Backend
+            headers: { Authorization: `Bearer ${session}` } // ส่ง Token ไปยืนยันตัวตนกับ Backend
         }
       );
       

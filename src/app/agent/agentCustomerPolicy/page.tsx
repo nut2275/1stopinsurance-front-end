@@ -11,12 +11,16 @@ import PolicyTable from "./components/PolicyTable";
 import StatusTabs from "./components/StatusTabs";
 import MenuAgent from '@/components/element/MenuAgent';
 
+import { useRouter } from 'next/navigation';
+import { routesAgentsSession } from '@/routes/session';
+
 const ITEMS_PER_PAGE = 10;
 
 export default function AgentPolicyPage() {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [filteredData, setFilteredData] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   // ✅ ใช้ FilterTab อย่างเดียวได้เลย (เพราะเราแก้ใน types.ts แล้ว)
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
@@ -46,11 +50,15 @@ export default function AgentPolicyPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("token");
-      if (!token) return;
+
+      const sesion = routesAgentsSession();
+      if (!sesion) {
+          router.push("/agent/login");
+          return;
+      }
       
       const res = await api.get<Purchase[]>("/purchase/agent/my-history", { 
-        headers: { Authorization: `Bearer ${token}` } 
+        headers: { Authorization: `Bearer ${sesion}` } 
       });
       
       setPurchases(res.data);

@@ -7,7 +7,7 @@ import {
   Loader2, Phone, Mail, Car, History, FileText, ArrowLeft, 
   ShieldCheck, Copy, ExternalLink, LucideIcon, Eye
 } from 'lucide-react';
-
+import { routesAgentsSession } from '@/routes/session';
 import api from '@/services/api'; 
 
 // --- 1. Type Definitions (Strict Mode) ---
@@ -99,14 +99,14 @@ const AgentCustomerDetailPage = () => {
       if (!customerId) return;
 
       try {
-        const token = localStorage.getItem("token");
-        if (!token) {
-            router.push('/login');
+        const session = routesAgentsSession();
+        if(!session) {
+            router.push('/agent/login');
             return;
         }
 
         const res = await api.get<CustomerDetailResponse>(`/agents/customer-profile/${customerId}`, {
-            headers: { Authorization: `Bearer ${token}` }
+            headers: { Authorization: `Bearer ${session}` }
         });
 
         if (res.data) {

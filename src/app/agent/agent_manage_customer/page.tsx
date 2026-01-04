@@ -1,23 +1,17 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-// ❌ ไม่ต้อง import axios ตรงๆ แล้ว
-// import axios from 'axios'; 
 import { useRouter } from 'next/navigation';
 import MenuAgent from '@/components/element/MenuAgent';
 import { Loader2, Search, User, Phone, Car, ShieldCheck, ChevronRight, Plus } from 'lucide-react';
 import Link from 'next/link';
-import { jwtDecode } from 'jwt-decode'; 
+
+import { routesAgentsSession } from '@/routes/session'; // ✅ นำเข้าฟังก์ชันตรวจสอบ Session ถ้าจำเป็น
+
 
 // ✅ Import api ที่คุณสร้างไว้ (เช็ค Path ให้ถูกนะครับว่า services อยู่ตรงไหน)
 import api from '@/services/api'; 
 
-interface DecodedToken {
-  id: string;
-  role?: string;
-  exp?: number;
-  iat?: number;
-}
 
 interface CustomerList {
   _id: string;
@@ -40,19 +34,17 @@ const AgentManageCustomerPage = () => {
   const fetchCustomers = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("token");
-      
-      if (!token) {
-         router.push('/login');
+
+      const session = routesAgentsSession();
+      if (!session) {
+         router.push('/agent/login'); // เปลี่ยน path ตามที่คุณใช้จริง
          return;
       }
-      
-      const decoded = jwtDecode<DecodedToken>(token);
-      const agentId = decoded.id;
+      const agentId = session.id;
 
       if (!agentId) {
         console.error("Token invalid: Missing Agent ID");
-        router.push('/login');
+        router.push('/agent/login');
         return;
       }
 
@@ -60,7 +52,7 @@ const AgentManageCustomerPage = () => {
       // ✅ ตัด http://localhost:5000 ออก เพราะอยู่ใน api.ts แล้ว
       // ✅ แก้ Path เป็น 'agents' (เติม s) ตามที่คุณแจ้ง
       const res = await api.get<CustomerList[]>(`/agents/my-customers/${agentId}?search=${searchTerm}`, {
-        headers: { Authorization: `Bearer ${token}` } // (Optional: ถ้าใน api.ts ใส่ interceptor แล้วก็ไม่ต้องใส่ตรงนี้ซ้ำ)
+        headers: { Authorization: `Bearer ${session}` } // (Optional: ถ้าใน api.ts ใส่ interceptor แล้วก็ไม่ต้องใส่ตรงนี้ซ้ำ)
       });
 
       setCustomers(res.data);
