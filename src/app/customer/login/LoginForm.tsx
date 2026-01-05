@@ -7,6 +7,7 @@ import Link from "next/link";
 import { AxiosError } from "axios";
 import { useRouter } from "next/navigation";
 import MenuLogin from "@/components/element/MenuLogin";
+import { routesCustomersSession, routesAgentsSession } from "@/routes/session"
 
 interface DecodedToken {
   username: string;
@@ -25,37 +26,44 @@ const LoginForm = () => {
 
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-        // คง type เป็น object ตามที่คุณบอก
-        const decoded = jwtDecode<{ username: string, _id: object }>(token);
+    // check if customer session
+    const sessionRoutes = routesCustomersSession();
+    
+    // check if agent session 
+    const agentSession = routesAgentsSession();
 
-        const _id = decoded._id;
-        console.log(decoded._id);
-        
-        // ✅ แก้ไข: แปลง Object เป็น String ก่อนเก็บ
-        localStorage.setItem("customerId", JSON.stringify(_id)); 
-        localStorage.setItem("customerBuyId", JSON.stringify(decoded._id));
-
-        console.log("Logged in user:", jwtDecode(token));
-        if(decoded) router.push("/customer/profile")
+    if (sessionRoutes) {
+      localStorage.setItem("customerId", JSON.stringify(sessionRoutes._id)); 
+      localStorage.setItem("customerBuyId", JSON.stringify(sessionRoutes._id));
+      router.push("/customer/profile");
+      return;
+    } 
+    else if (agentSession) {
+      router.push("/agent/profile");
+      return;
     }
+
+    // const token = localStorage.getItem("token");
+    // if (token) {
+    //     // คง type เป็น object ตามที่คุณบอก
+    //     const decoded = jwtDecode<{ username: string, _id: object }>(token);
+
+    //     const _id = decoded._id;
+    //     console.log(decoded._id);
+        
+    //     // ✅ แก้ไข: แปลง Object เป็น String ก่อนเก็บ
+    //     localStorage.setItem("customerId", JSON.stringify(_id)); 
+    //     localStorage.setItem("customerBuyId", JSON.stringify(decoded._id));
+
+    //     console.log("Logged in user:", jwtDecode(token));
+    //     if(decoded) router.push("/customer/profile")
+    // }
   }, [router]);
   
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
-
-  // const checkCookie = () => {
-  //   const token = localStorage.getItem("token");
-  //   if (token) {
-  //     // decode token เพื่อดูข้อมูล user
-  //     const decoded = jwtDecode<{ username: string }>(token);
-  //     console.log("Logged in user:", jwtDecode(token));
-  //     console.log("Logged in user:", decoded.username);
-  //   }
-  // }
 
 const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

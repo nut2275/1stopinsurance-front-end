@@ -1,10 +1,11 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import useSWR from "swr";
 import api from "@/services/api";
 import MenuLogined from "@/components/element/MenuLogined";
+import {routesCustomersSession} from "@/routes/session";
 
 // Define the shape of the Purchase data returned from the API
 interface PurchaseData {
@@ -34,6 +35,14 @@ export default function PurchaseDocumentPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [previewFile, setPreviewFile] = useState<string | null>(null);
+
+  useEffect(() => {
+    // เช็ค Session ถ้าไม่ได้ Login ให้เด้งไปหน้า Login
+    if (!routesCustomersSession()) {  
+      router.push("/customer/login");
+      return;
+    }
+  }, []);
 
   // useSWR with generic type for better type inference
   const { data, error, isLoading } = useSWR<PurchaseData>(
@@ -83,7 +92,7 @@ export default function PurchaseDocumentPage() {
   ];
 
   // 2. เอกสารการเงิน (แยกตาม paymentMethod)
-  let financialDocuments: DocConfig[] = [];
+  const financialDocuments: DocConfig[] = [];
 
   if (data?.paymentMethod === 'installment') {
     // ✅ กรณีผ่อนชำระ: แสดงเอกสารผ่อน + หนังสือยินยอม(ถ้ามี)

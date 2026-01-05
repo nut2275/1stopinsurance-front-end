@@ -8,6 +8,7 @@ import api from '@/services/api';
 import axios from 'axios'; 
 import { mutate } from "swr";
 import { Customer } from '@/types/dataType';
+import {routesCustomersSession} from '@/routes/session';
 
 // ✅ สร้าง Interface สำหรับ Error Response
 interface ApiErrorResponse {
@@ -68,6 +69,12 @@ export default function EditProfileForm() {
         console.error("โหลดข้อมูลไม่สำเร็จ:", error);
       }
     };
+
+    // เช็ค Session ถ้าไม่ได้ Login ให้เด้งไปหน้า Login
+    if (!routesCustomersSession()) {
+      router.push("/customer/login");
+      return;
+    }
 
     fetchUserData();
   }, [searchParams]);

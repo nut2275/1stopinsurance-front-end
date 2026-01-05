@@ -1,9 +1,28 @@
-import React from 'react'; // Import React for JSX
+"use client";
+import React, {useEffect} from 'react';
 import Link from 'next/link';
 import Menu from '@/components/element/Menu';
 import Image from 'next/image';
+import {routesCustomersSession, routesAgentsSession} from '@/routes/session';
+import { useRouter } from 'next/navigation';
 
 export default function MainPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    const agentSession = routesAgentsSession();
+    const customerSession = routesCustomersSession();
+
+    if (agentSession) {
+      router.push("/agent/profile");
+      return;
+    }
+    else if (customerSession) {
+      router.push("/customer/profile");
+      return;
+    }
+  }, []);
+  
   return (
     <div className="flex flex-col min-h-screen font-sans text-gray-800 bg-gray-50">
 

@@ -2,19 +2,12 @@
 
 import { useEffect, useState } from "react";
 import api from "@/services/api";
-import { jwtDecode } from "jwt-decode";
+// import { jwtDecode } from "jwt-decode";
 import { useRouter } from "next/navigation";
 import MenuLogin from "@/components/element/MenuLogin";
 import Link from "next/link";
 import {AxiosError} from 'axios'
-
-interface DecodedToken {
-  username: string;
-  id: string;
-  role: string;
-  exp?: number;
-  iat?: number;
-}
+import { routesAgentsSession, routesCustomersSession } from "@/routes/session";
 
 const Login_AgentPage = () => {
   const [form, setForm] = useState({ username: "", password: "" });
@@ -23,9 +16,16 @@ const Login_AgentPage = () => {
   const router = useRouter();
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
+    const sessionAgentRoutes = routesAgentsSession();
+    const customerSession = routesCustomersSession();
+
+    if (sessionAgentRoutes) {
       router.push("/agent/agent_dashboard");
+      return;
+    }
+    else if (customerSession) {
+      router.push("/customer/profile");
+      return;
     }
   }, []);
 
