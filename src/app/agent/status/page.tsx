@@ -209,7 +209,7 @@ export default function AgentStatusPage() {
                 </div>
                 {currentStatus === 'approved' && (
                   <div className="mt-8 pt-6 border-t border-slate-100">
-                    <button onClick={() => router.push('/dashboard')} className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2.5 rounded-lg shadow-md shadow-green-600/20 transition-all active:scale-95 flex justify-center items-center gap-2 text-sm">
+                    <button onClick={() => router.push('/agent/agent_dashboard')} className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2.5 rounded-lg shadow-md shadow-green-600/20 transition-all active:scale-95 flex justify-center items-center gap-2 text-sm">
                       เข้าสู่ระบบงานขาย <CheckCircle2 size={16}/>
                     </button>
                   </div>

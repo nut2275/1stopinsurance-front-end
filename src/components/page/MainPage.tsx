@@ -20,7 +20,7 @@ export default function MainPage() {
 
         // กรณีเป็น Agent ให้ Redirect ไปหน้า Profile เหมือนเดิม (เพราะ MenuLogined ดีไซน์มาเพื่อ Customer)
         if (agentSession) {
-            router.push("/agent/profile");
+            router.push("/agent/agent_dashboard");
             return;
         }
 
