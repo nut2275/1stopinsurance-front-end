@@ -5,7 +5,7 @@ import Image from "next/image";
 function MenuLogin() {
   // สำหรับหน้า login register เท่านั้น
   return (
-    <header className="flex items-center px-8 py-4 bg-white shadow" style={{zIndex:9999}}>
+    <header className="flex items-center drop-shadow-xs px-8 py-4 bg-white shadow" style={{zIndex:9999}}>
         <Link href="/" className="flex items-center space-x-2 text-blue-900 font-bold text-xl no-underline">
         
         <Image src="/fotos/Logo.png" alt="logo" width={40} height={40} />

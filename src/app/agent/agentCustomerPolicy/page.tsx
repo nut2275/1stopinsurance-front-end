@@ -56,9 +56,10 @@ export default function AgentPolicyPage() {
           router.push("/agent/login");
           return;
       }
+      const token = localStorage.getItem("token");
       
       const res = await api.get<Purchase[]>("/purchase/agent/my-history", { 
-        headers: { Authorization: `Bearer ${sesion}` } 
+        headers: { Authorization: `Bearer ${token}` } 
       });
       
       setPurchases(res.data);

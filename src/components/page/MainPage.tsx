@@ -14,7 +14,7 @@ export default function MainPage() {
     const customerSession = routesCustomersSession();
 
     if (agentSession) {
-      router.push("/agent/profile");
+      router.push("/agent/agent_dashboard");
       return;
     }
     else if (customerSession) {
