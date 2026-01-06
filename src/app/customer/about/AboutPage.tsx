@@ -51,6 +51,16 @@ export default function AboutPage() {
     fetchData();
   }, []);
 
+  // อาร์เรย์เก็บ path ของรูปภาพพันธมิตรทั้งหมด
+  const partnerImages = [
+    "/fotos/Insur1.png",
+    "/fotos/Insur2.png",
+    "/fotos/Insur3.png",
+    "/fotos/Insur4.png",
+    "/fotos/Insur5.png",
+    "/fotos/Insur6.png",
+  ];
+
   return (
     <div className="flex flex-col min-h-screen font-sans text-gray-800 bg-gray-50">
 
@@ -79,7 +89,7 @@ export default function AboutPage() {
                 Our Story
               </div>
               <h2 className="text-3xl md:text-4xl font-bold text-gray-900 leading-tight">
-                ทำไมเราถึงสร้าง <br/> <span className="text-blue-700">1StopInsurance?</span>
+                ทำไมเราถึงสร้าง <br/> <span className="text-blue-700">1Stop</span>Insurance
               </h2>
               <p className="text-gray-600 text-lg leading-relaxed">
                 เราเริ่มต้นด้วยความเชื่อที่ว่า "การซื้อประกันรถยนต์ไม่ควรเป็นเรื่องยุ่งยาก" 
@@ -121,9 +131,22 @@ export default function AboutPage() {
             </div>
             
             <div className="relative">
-              <div className="aspect-square md:aspect-[4/3] bg-gradient-to-tr from-blue-50 to-white rounded-3xl relative overflow-hidden shadow-lg border border-blue-100 rotate-3 hover:rotate-0 transition-transform duration-500">
-                  <div className="absolute inset-0 flex items-center justify-center text-blue-200">
-                      <ShieldCheck className="w-32 h-32 opacity-30" />
+              <div className="aspect-square md:aspect-[4/3] bg-gradient-to-tr from-blue-50 to-white rounded-3xl relative overflow-hidden shadow-lg border border-blue-100 rotate-3 hover:rotate-0 transition-transform duration-500 flex items-center justify-center p-6">
+                  <div className="grid grid-cols-3 gap-4 w-full h-full place-items-center">
+                      {partnerImages.map((src, index) => (
+                          <div key={index} className="relative w-full h-full flex items-center justify-center">
+                              <Image
+                                  src={src}
+                                  alt={`Partner ${index + 1}`}
+                                  width={80}
+                                  height={80}
+                                  className="object-contain max-h-full max-w-full"
+                              />
+                          </div>
+                      ))}
+                  </div>
+                  <div className="absolute inset-0 flex items-center justify-center text-blue-200 pointer-events-none">
+                      <ShieldCheck className="w-32 h-32 opacity-10" />
                   </div>
               </div>
               <div className="absolute -bottom-6 -left-6 bg-white p-6 rounded-2xl shadow-xl border border-gray-100 max-w-xs">
@@ -150,8 +173,7 @@ export default function AboutPage() {
           </div>
         </section>
 
-        {/* ... (Section 4 & 5 เหมือนเดิม) ... */}
-        
+        {/* ... (ส่วนอื่นๆ คงเดิม) ... */}
         {/* --- 4. Why Choose Us --- */}
         <section className="py-20 max-w-6xl mx-auto px-6">
           <div className="text-center mb-16">

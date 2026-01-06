@@ -1,33 +1,57 @@
 "use client";
-import React, {useEffect} from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import Menu from '@/components/element/Menu';
+// import Menu from '@/components/element/Menu'; // ❌ ไม่ใช้แล้ว
+import MenuLogin from '@/components/element/MenuLogin'; // ✅ Import MenuLogin
+import MenuLogined from '@/components/element/MenuLogined'; // ✅ Import MenuLogined
 import Image from 'next/image';
-import {routesCustomersSession, routesAgentsSession} from '@/routes/session';
+import { routesCustomersSession, routesAgentsSession } from '@/routes/session';
 import { useRouter } from 'next/navigation';
 
 export default function MainPage() {
   const router = useRouter();
+  const [isLoggedIn, setIsLoggedIn] = useState(false); // ✅ State เก็บสถานะ Login
+  const [isLoading, setIsLoading] = useState(true);    // ✅ State กันหน้าจอกระพริบ
 
   useEffect(() => {
-    const agentSession = routesAgentsSession();
-    const customerSession = routesCustomersSession();
+    const checkSession = async () => {
+        const agentSession = routesAgentsSession();
+        const customerSession = routesCustomersSession();
 
-    if (agentSession) {
-      router.push("/agent/profile");
-      return;
-    }
-    else if (customerSession) {
-      router.push("/customer/profile");
-      return;
-    }
-  }, []);
+        // กรณีเป็น Agent ให้ Redirect ไปหน้า Profile เหมือนเดิม (เพราะ MenuLogined ดีไซน์มาเพื่อ Customer)
+        if (agentSession) {
+            router.push("/agent/profile");
+            return;
+        }
+
+        // กรณีเป็น Customer ให้แสดงหน้าเว็บต่อ แต่เปลี่ยนเมนูเป็น Logined
+        if (customerSession) {
+            setIsLoggedIn(true);
+            // router.push("/customer/profile"); // ❌ ปิดบรรทัดนี้เพื่อให้ลูกค้าดูหน้าแรกได้
+        } else {
+            setIsLoggedIn(false);
+        }
+        
+        setIsLoading(false);
+    };
+
+    checkSession();
+  }, [router]);
   
+  // (Optional) แสดงหน้าจอว่างๆ ขณะเช็ค Session เพื่อป้องกัน Layout Shift
+  if (isLoading) {
+      return <div className="min-h-screen bg-gray-50"></div>;
+  }
+
   return (
     <div className="flex flex-col min-h-screen font-sans text-gray-800 bg-gray-50">
 
-      {/* Header */}
-      <Menu />
+      {/* Header: เลือกแสดงตามสถานะ isLoggedIn */}
+      {isLoggedIn ? (
+          <MenuLogined activePage='/' />
+      ) : (
+          <MenuLogin activePage='/' />
+      )}
 
       {/* Main content */}
       <main className="flex-grow">
@@ -86,5 +110,3 @@ export default function MainPage() {
     </div>
   );
 }
-
-

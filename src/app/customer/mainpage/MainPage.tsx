@@ -1,6 +1,5 @@
 import React from 'react'; // Import React for JSX
 import Link from 'next/link';
-import MenuLogined from '@/components/element/MenuLogined';
 import Image from 'next/image';
 
 
@@ -9,9 +8,6 @@ export default function MainPage() {
   
   return (
     <div className="flex flex-col min-h-screen font-sans text-gray-800 bg-gray-50">
-
-      {/* Header */}
-      <MenuLogined activePage='/' />
 
       {/* Main content */}
       <main className="flex-grow">
