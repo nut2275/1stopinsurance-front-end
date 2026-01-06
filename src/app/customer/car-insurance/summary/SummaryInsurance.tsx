@@ -60,8 +60,8 @@ export default function SummaryPage() {
   const planId = searchParams.get("id");
 
   const [agentProfile, setAgentProfile] = useState<AgentProfile | null>(null);
-  const [agentLoading, setAgentLoading] = useState(false); // (ถ้าไม่ได้ใช้ สามารถลบออกได้)
-  const [agentError, setAgentError] = useState<string | null>(null); // (ถ้าไม่ได้ใช้ สามารถลบออกได้)
+  const [agentLoading, setAgentLoading] = useState(false); 
+  const [agentError, setAgentError] = useState<string | null>(null); 
 
   const [selectedPlan, setSelectedPlan] = useState<InsurancePlan | null>(null);
   const [loading, setLoading] = useState(true);
@@ -129,15 +129,14 @@ export default function SummaryPage() {
 
     const fetchAgents = async () => {
       try {
-        // ใช้ api instance แทน axios
         const res = await api.get<AgentProfile[]>(`/agents/search?q=${agentQuery}`, {
           signal: controller.signal,
         });
         setAgentResults(res.data);
         setShowDropdown(true);
       } catch (err) {
-        // ถ้า error ไม่ใช่การ cancel ให้เคลียร์ผลลัพธ์
-        if ((err as any).name !== "CanceledError") { 
+        // ✅ แก้ไข: ใช้ instanceof Error เพื่อเช็ค Type ปลอดภัยกว่าการใช้ as any
+        if (err instanceof Error && err.name !== "CanceledError") { 
             setAgentResults([]);
         }
       }

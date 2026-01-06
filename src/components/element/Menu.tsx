@@ -19,8 +19,8 @@ function Menu() {
     </Link>
 
     <nav className="hidden md:flex space-x-6 text-gray-700 font-medium">
-      <Link href="customer/car-insurance/car-Insurance-form" className="hover:text-blue-700">ประกันรถยนต์</Link>
-      <Link href="/" className="hover:text-blue-700">เกี่ยวกับเรา</Link>
+      <Link href="/customer/car-insurance/car-Insurance-form" className="hover:text-blue-700">ประกันรถยนต์</Link>
+      <Link href="/customer/about" className="hover:text-blue-700">เกี่ยวกับเรา</Link>
       <Link href="#footer" className="hover:text-blue-700">ติดต่อเรา</Link>
     </nav>
 
