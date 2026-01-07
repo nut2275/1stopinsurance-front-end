@@ -149,13 +149,6 @@ export default function ManageTab({ onNotify }: TabProps) {
                 </div>
             </div>
         </div>
-
-        {/* Search Button */}
-        <div className="md:col-span-12 flex justify-end mt-2">
-            <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-2 hover:-translate-y-1">
-                <Icons.Search /> ค้นหาข้อมูล
-            </button>
-        </div>
       </form>
 
       {/* Pagination */}

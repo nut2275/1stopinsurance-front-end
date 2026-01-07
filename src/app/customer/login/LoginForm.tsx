@@ -120,7 +120,7 @@ const LoginForm = () => {
         <div className="text-center mb-8">
             <h2 className="text-2xl font-bold text-gray-900 tracking-tight">เข้าสู่ระบบสมาชิก</h2>
             <p className="mt-2 text-sm text-gray-500">
-              ยินดีต้อนรับสู่บริการประกันภัยออนไลน์ครบวงจร
+              ยินดีต้อนรับสู่บริการประกันออนไลน์
             </p>
         </div>
 
