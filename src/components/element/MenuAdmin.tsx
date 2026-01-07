@@ -117,7 +117,7 @@ const fetchUnreadCount = async () => {
 
         {/* Logo */}
         <div className="flex items-center gap-3">
-          <Link href="/root/admin/dashboard" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
             <Image
               src="/fotos/Logo.png"
               alt="logo"
