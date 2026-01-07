@@ -7,7 +7,6 @@ import { AxiosError } from "axios";
 import api from "@/services/api";
 import MenuLogin from "@/components/element/MenuLogin";
 
-// ✅ Interface สำหรับ Form State
 interface RegisterFormState {
   first_name: string;
   last_name: string;
@@ -25,13 +24,11 @@ interface RegisterFormState {
   [key: string]: string;
 }
 
-// ✅ Interface สำหรับ API Error
 interface ApiErrorResponse {
   message: string;
   error?: string;
 }
 
-// ✅ Interface สำหรับ Notification Error (เฉพาะกิจ)
 interface NotificationError {
   response?: {
     data?: any;
@@ -89,8 +86,10 @@ export default function RegisterAgentPage() {
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { id, value } = e.target;
-    if (id === "phone") {
-      const numericValue = value.replace(/\D/g, "");
+    
+    // ✅ Logic 1: บังคับช่องตัวเลขให้พิมพ์ได้แค่เลข และไม่เกิน 10 หลัก
+    if (id === "phone" || id === "agent_license_number") {
+      const numericValue = value.replace(/\D/g, "").slice(0, 10);
       setForm((prev) => ({ ...prev, [id]: numericValue }));
     } else {
       setForm((prev) => ({ ...prev, [id]: value }));
@@ -114,9 +113,32 @@ export default function RegisterAgentPage() {
     }
   };
 
-  // ✅ handleSubmit
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+
+    // ✅ Logic 2: Validation Rules (ตรวจสอบเงื่อนไข)
+    
+    // 2.1 เลขใบอนุญาตต้อง 10 หลัก
+    if (form.agent_license_number.length !== 10) {
+      return alert("เลขที่ใบอนุญาตต้องเป็นตัวเลข 10 หลักเท่านั้น");
+    }
+
+    // 2.2 เบอร์โทรต้อง 10 หลัก
+    if (form.phone.length !== 10) {
+      return alert("เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลักเท่านั้น");
+    }
+
+    // 2.3 Username ต้องปลอดภัย (A-Z, 0-9, 4-20 ตัว)
+    const usernameRegex = /^[a-zA-Z0-9_]{4,20}$/;
+    if (!usernameRegex.test(form.username)) {
+      return alert("Username ต้องเป็นภาษาอังกฤษหรือตัวเลข ความยาว 4-20 ตัวอักษร และไม่มีอักขระพิเศษ");
+    }
+
+    // 2.4 Password ต้องปลอดภัย (ขั้นต่ำ 8 ตัว)
+    if (form.password.length < 8) {
+      return alert("รหัสผ่านต้องมีความยาวอย่างน้อย 8 ตัวอักษร");
+    }
+
     if (form.password !== form.passwordConfirm) {
       return alert("รหัสผ่าน และ ยืนยันรหัสผ่าน ไม่ตรงกัน");
     }
@@ -125,14 +147,10 @@ export default function RegisterAgentPage() {
       if (isEdit) {
         alert("ระบบแก้ไขยังไม่เปิดใช้งานในตัวอย่างนี้");
       } else {
-        // 1. ส่งข้อมูลสมัครสมาชิก (ใช้ api instance)
         await api.post("/agents/register", form);
 
-        // 2. ✅ สร้าง Notification ส่งหา Admin
         try {
             const fakeAdminId = "000000000000000000000000"; 
-
-            // ใช้ api instance
             await api.post("/api/notifications", {
                 recipientType: 'admin',
                 recipientId: fakeAdminId, 
@@ -144,7 +162,6 @@ export default function RegisterAgentPage() {
                 }
             });
         } catch (error) {
-            // Cast error เพื่อป้องกัน any
             const notiError = error as NotificationError;
             console.log("Notification Error Detail:", notiError.response?.data);
         }
@@ -153,14 +170,11 @@ export default function RegisterAgentPage() {
         router.push("/agent/login");
       }
     } catch (error) {
-      // ใช้ AxiosError<ApiErrorResponse> เพื่อ Type Safety
       const err = error as AxiosError<ApiErrorResponse>;
       console.error(err);
-
       const errorMessage =
         err.response?.data?.message ||
         "การสมัครสมาชิกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
-
       alert(errorMessage);
     }
   };
@@ -268,7 +282,9 @@ export default function RegisterAgentPage() {
               <input
                 id="agent_license_number"
                 type="text"
-                placeholder="เลขที่ใบอนุญาตนายหน้า"
+                inputMode="numeric"
+                maxLength={10} // ✅ Limit Input length
+                placeholder="เลขที่ใบอนุญาตนายหน้า (10 หลัก)"
                 value={form.agent_license_number}
                 onChange={handleChange}
                 className="w-full border border-gray-300 rounded-md p-2"
@@ -303,6 +319,7 @@ export default function RegisterAgentPage() {
                 id="phone"
                 type="tel"
                 inputMode="numeric"
+                maxLength={10} // ✅ Limit Input length
                 pattern="[0-9]*"
                 placeholder="08XXXXXXXX"
                 value={form.phone}
@@ -313,15 +330,16 @@ export default function RegisterAgentPage() {
             </div>
             <div>
               <label htmlFor="idLine" className="block font-medium mb-1">
-                LINE ID
+                LINE ID <span className="text-red-500">*</span>
               </label>
               <input
                 id="idLine"
                 type="text"
-                placeholder="ไอดีไลน์ (ถ้ามี)"
+                placeholder="ไอดีไลน์"
                 value={form.idLine}
                 onChange={handleChange}
                 className="w-full border border-gray-300 rounded-md p-2"
+                required // ✅ บังคับกรอกตามเงื่อนไขใหม่
               />
             </div>
           </div>
@@ -343,7 +361,7 @@ export default function RegisterAgentPage() {
 
           <div>
               <label htmlFor="note" className="block font-medium mb-1">
-                หมายเหตุ
+                หมายเหตุ (ไม่บังคับ)
               </label>
               <input
                 id="note"
@@ -367,7 +385,7 @@ export default function RegisterAgentPage() {
                 <input
                   id="username"
                   type="text"
-                  placeholder="ตั้งชื่อผู้ใช้"
+                  placeholder="ตั้งชื่อผู้ใช้ (อังกฤษ/ตัวเลข 4-20 ตัว)"
                   value={form.username}
                   onChange={handleChange}
                   className="w-full border border-gray-300 rounded-md p-2"
@@ -384,11 +402,13 @@ export default function RegisterAgentPage() {
                 <input
                   id="password"
                   type="password"
-                  placeholder="รหัสผ่าน"
+                  autoComplete="new-password"
+                  placeholder="รหัสผ่าน (ขั้นต่ำ 8 ตัว)"
                   value={form.password}
                   onChange={handleChange}
                   className="w-full border border-gray-300 rounded-md p-2"
                   required
+                  minLength={8}
                 />
               </div>
               <div>
@@ -401,11 +421,13 @@ export default function RegisterAgentPage() {
                 <input
                   id="passwordConfirm"
                   type="password"
+                  autoComplete="new-password"
                   placeholder="ยืนยันรหัสผ่านอีกครั้ง"
                   value={form.passwordConfirm}
                   onChange={handleChange}
                   className="w-full border border-gray-300 rounded-md p-2"
                   required
+                  minLength={8}
                 />
               </div>
             </div>

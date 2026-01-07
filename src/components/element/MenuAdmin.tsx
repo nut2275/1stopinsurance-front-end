@@ -4,18 +4,25 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Bell, ChevronDown, UserCircle, LogOut, Menu, X } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { jwtDecode } from "jwt-decode"; // ✅ อย่าลืม install jwt-decode
-import api from '@/services/api';       // ✅ เรียกใช้ API ตัวเดิม
+import { jwtDecode } from "jwt-decode"; 
+import api from '@/services/api'; 
 
 type AdminHeaderProps = {
   activePage: string;
 };
 
-// Interface สำหรับ Token
+// ✅ ปรับ Interface ให้ครอบคลุมทุก Field ที่อาจจะมีใน Token
 interface DecodedToken {
-  id: string;
-  role: string;
-  exp: number;
+  id?: string;
+  _id?: string;     // บางระบบใช้ _id
+  userId?: string;  // บางระบบใช้ userId
+  role?: string;
+  exp?: number;
+}
+
+// ✅ Interface สำหรับ Response จาก API แจ้งเตือน
+interface NotificationResponse {
+  unreadCount: number;
 }
 
 const navLinks = [
@@ -30,58 +37,58 @@ const navLinks = [
 export default function MenuAdmin({ activePage }: AdminHeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isNavOpen, setIsNavOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0); // ✅ เพิ่ม State นับแจ้งเตือน
+  const [unreadCount, setUnreadCount] = useState(0); 
   const menuRef = useRef<HTMLDivElement>(null);
 
   const logout = () => {
     localStorage.removeItem("token");
-    localStorage.removeItem("userData"); // ล้างข้อมูล Admin
+    localStorage.removeItem("userData"); 
     setIsMenuOpen(false); 
     window.location.assign("/");
   };
 
-  // ✅ ฟังก์ชันดึงจำนวนแจ้งเตือน
-const fetchUnreadCount = async () => {
+  const fetchUnreadCount = async () => {
     try {
       let userId = "";
       
-      // 1. หา ID จริงจาก Token (เผื่ออนาคตใช้ส่งส่วนตัว)
       const token = localStorage.getItem("token");
       if (token) {
         try {
-            const decoded: any = jwtDecode(token);
-            userId = decoded.id || decoded._id || decoded.userId; 
+            // ✅ ใส่ Type ให้ jwtDecode แทนการใช้ any
+            const decoded = jwtDecode<DecodedToken>(token);
+            // เข้าถึง Property ได้อย่างปลอดภัยเพราะประกาศใน Interface แล้ว
+            userId = decoded.id || decoded._id || decoded.userId || ""; 
         } catch (e) { console.error(e); }
       }
 
-      // 2. ID กลางสำหรับ Admin (ที่ใช้ตอนสมัครสมาชิก)
-      // ต้องตรงกับที่ส่งไปตอน RegisterAgentPage
       const commonAdminId = "000000000000000000000000"; 
 
-      // เรียก API 2 ครั้ง (หรือจะแก้ Backend ให้รองรับก็ได้ แต่วิธีนี้ง่ายกว่า)
-      // ครั้งที่ 1: ดึงของ Admin คนนี้โดยเฉพาะ
-      const res1 = userId ? await api.get(`/api/notifications?userId=${userId}`) : { data: { unreadCount: 0 } };
+      let count1 = 0;
+      let count2 = 0;
+
+      // 1. ดึงของ Admin คนนี้ (ถ้ามี ID)
+      if (userId) {
+          // ✅ ใส่ Type ให้ api.get เพื่อให้รู้ว่า data ข้างในคืออะไร
+          const res1 = await api.get<NotificationResponse>(`/api/notifications?userId=${userId}`);
+          if (res1.data) count1 = res1.data.unreadCount || 0;
+      }
       
-      // ครั้งที่ 2: ดึงของ Admin ส่วนกลาง (แจ้งเตือนสมัครสมาชิก)
-      const res2 = await api.get(`/api/notifications?userId=${commonAdminId}`);
+      // 2. ดึงของ Admin ส่วนกลาง
+      const res2 = await api.get<NotificationResponse>(`/api/notifications?userId=${commonAdminId}`);
+      if (res2.data) count2 = res2.data.unreadCount || 0;
 
-      let totalUnread = 0;
-      if (res1.data && typeof res1.data.unreadCount === 'number') totalUnread += res1.data.unreadCount;
-      if (res2.data && typeof res2.data.unreadCount === 'number') totalUnread += res2.data.unreadCount;
-
-      setUnreadCount(totalUnread);
+      setUnreadCount(count1 + count2);
 
     } catch (e) {
       console.error("Failed to fetch notification count:", e);
     }
   };
 
-  // ✅ Setup Interval และ Event Listener
   useEffect(() => {
-    fetchUnreadCount(); // เรียกครั้งแรก
+    fetchUnreadCount(); 
 
-    const interval = setInterval(fetchUnreadCount, 60000); // เช็คทุก 1 นาที
-    window.addEventListener('refreshNotification', fetchUnreadCount); // รอคำสั่ง Refresh
+    const interval = setInterval(fetchUnreadCount, 60000); 
+    window.addEventListener('refreshNotification', fetchUnreadCount); 
 
     return () => {
         clearInterval(interval);
@@ -89,7 +96,6 @@ const fetchUnreadCount = async () => {
     };
   }, []);
 
-  // Click Outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -137,7 +143,7 @@ const fetchUnreadCount = async () => {
 
       <div className=" flex items-center gap-5">
         
-        {/* ✅ Notification Bell (Updated) */}
+        {/* Notification Bell */}
         <Link href={'/root/admin/notification'} className={`relative w-9 h-9 flex items-center justify-center transition-colors rounded-full hover:bg-slate-100 ${
               activePage === "notification"
                 ? 'text-blue-600 bg-blue-50'
@@ -146,7 +152,6 @@ const fetchUnreadCount = async () => {
 
             <Bell size={24} />
             
-            {/* แสดงจุดแดงเมื่อมี unreadCount > 0 */}
             {unreadCount > 0 && (
               <span className="absolute top-1 right-1 flex h-4 w-4">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
