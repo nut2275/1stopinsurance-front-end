@@ -81,32 +81,7 @@ export default function MenuAgent({ activePage }: AdminHeaderProps) {
 
   // ✅ Logic ตรวจสอบสถานะ + Initial Load
   useEffect(() => {
-    const initData = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        if (!token) return;
-
-        const decoded = jwtDecode<DecodedToken>(token);
-        
-        if (decoded && decoded.id) {
-          // 1. ดึงข้อมูล Agent และ เช็ค Status
-          const agentRes = await api.get<AgentData>(`/agents/${decoded.id}`);
-          const agent = agentRes.data;
-
-          if (agent.first_name) setDisplayName(agent.first_name);
-
-          if (agent.verification_status === 'in_review' || agent.verification_status === 'rejected') {
-            if (pathname !== '/agent/status') {
-              router.replace('/agent/status');
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Failed to initialize agent data:", error);
-      }
-    };
-
-    initData();
+    // initData();
     fetchUnreadCount(); // เรียกดึง Notification ครั้งแรก
 
     // ตั้ง Interval เช็คทุก 1 นาที

@@ -8,6 +8,7 @@ import { useRouter , useSearchParams} from "next/navigation";
 import MenuLogin from "@/components/element/MenuLogin";
 import { routesCustomersSession, routesAgentsSession } from "@/routes/session";
 
+
 // --- SVG Icons ---
 const UserIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -48,7 +49,6 @@ const LoginForm = () => {
       window.location.assign("/customer/profile");
       return;
     } else if (agentSession) {
-      // router.push("/agent/agent_dashboard");
       window.location.assign("/agent/agent_dashboard");
       return;
     }

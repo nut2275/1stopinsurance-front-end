@@ -207,7 +207,6 @@ export default function AgentProfilePage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold text-slate-800">ข้อมูลตัวแทนประกัน</h1>
-              {/* <p className="text-slate-500 text-sm">รหัสอ้างอิง: <span className="font-mono">{agent._id}</span></p> */}
             </div>
             
             <div>
@@ -274,7 +273,7 @@ export default function AgentProfilePage() {
                   <h2 className="text-xl font-bold text-slate-800 mb-1">
                     {agent.first_name} {agent.last_name}
                   </h2>
-                  <p className="text-slate-500 text-sm mb-4">@{agent.username}</p>
+                  <p className="text-slate-500 text-sm mb-4">{agent.username}</p>
                   <div className="flex justify-center mb-6">{renderStatus(agent.verification_status)}</div>
 
                   <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6">

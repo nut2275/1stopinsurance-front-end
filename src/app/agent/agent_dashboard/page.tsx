@@ -19,21 +19,10 @@ import SalesTrendChart from './components/SalesTrendChart';
 
 import MenuAgent from '@/components/element/MenuAgent';
 import { routesAgentsSession } from '@/routes/session'; 
+import { AgentStatus } from "@/hooks/useAgentStatus";
 
 // ✅ สร้าง Interface สำหรับ Token เพื่อเลี่ยง any
-interface DecodedToken {
-  id: string;
-  role?: string;
-  exp?: number;
-}
 
-
-// ⚠️ 2. ส่วนที่เป็น "การคำนวณหน้าบ้าน" (Derived Data)
-// ส่วนนี้ไม่ใช่ Mock (ไม่ใช่เลขมั่ว) แต่เป็นตัวเลขที่เกิดจากสูตรคำนวณครับ:
-
-// ค่าคอมมิชชั่น (Commission): เราใช้สูตร ยอดขายรวม * 12% (ไม่ได้ดึงฟิลด์ commission จาก DB เพราะเราตกลงกันว่าใช้สูตรประมาณการไปก่อน)
-
-// เบี้ยเฉลี่ย (Avg. Ticket Size): เราใช้สูตร ยอดขายรวม / จำนวนฉบับ (อันนี้คือสูตรคำนวณปกติ ไม่ใช่ Mock)
 
 const AgentDashboard = () => {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -42,6 +31,9 @@ const AgentDashboard = () => {
   
   // ✅ เรียกใช้ Router
   const router = useRouter();
+  const { loading: authLoading } = AgentStatus();
+  
+
 
   const fetchDashboardData = async () => {
     try {
@@ -109,9 +101,23 @@ const AgentDashboard = () => {
     }
   };
 
+  // ✅ 2. useEffect ต้องประกาศก่อนการ return ใดๆ
   useEffect(() => {
-    fetchDashboardData();
-  }, [filter]); // โหลดใหม่เมื่อ filter เปลี่ยน
+    // เพิ่มเงื่อนไข: ถ้าเช็ค Auth เสร็จแล้ว (authLoading = false) ค่อยดึงข้อมูล
+    if (!authLoading) {
+        fetchDashboardData();
+    }
+  }, [filter, authLoading]); // เพิ่ม authLoading ใน dependency
+
+
+  if (authLoading) {
+      return (
+          <div className="flex flex-col h-screen items-center justify-center bg-slate-50">
+              <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
+              <p className="mt-4 text-slate-500">กำลังตรวจสอบสิทธิ์...</p>
+          </div>
+      );
+  }
 
   if (loading) {
     return (
