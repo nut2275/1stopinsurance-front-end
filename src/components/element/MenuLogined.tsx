@@ -8,11 +8,36 @@ import { jwtDecode } from "jwt-decode";
 import api from '@/services/api'; 
 // import {CustomerToken} from '@/routes/session';
 
+// ✅ Interface สำหรับ Props
 type AdminHeaderProps = {
   activePage: string;
 };
 
-// ตัด "ติดต่อเรา" ออกจาก Array หลักก่อน เพื่อไปจัดการแยกต่างหาก
+// ✅ Interface สำหรับ Token
+interface DecodedToken {
+  id?: string;
+  _id?: string;
+  userId?: string;
+  sub?: string;
+  role?: string;
+  exp?: number;
+}
+
+// ✅ Interface สำหรับข้อมูล Customer ใน LocalStorage
+interface CustomerData {
+  _id?: string;
+  id?: string;
+  userId?: string;
+  first_name: string;
+  last_name?: string;
+  email?: string;
+}
+
+// ✅ Interface สำหรับ Response ของ API Notification
+interface NotificationResponse {
+    unreadCount: number;
+}
+
 const navLinks = [
   { href: "/customer/car-insurance/car-Insurance-form", label: "ประกันรถยนต์" },
   { href: "/customer/about", label: "เกี่ยวกับเรา" },
@@ -24,12 +49,18 @@ export default function MenuLogined({ activePage }: AdminHeaderProps) {
   const [isNavOpen, setIsNavOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0); 
   const menuRef = useRef<HTMLDivElement>(null);
-  const [customerData, setCustomerData] = useState<any>(null);
+  
+  // ✅ เปลี่ยนจาก any เป็น CustomerData | null
+  const [customerData, setCustomerData] = useState<CustomerData | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem("customer");
     if (stored) {
-        setCustomerData(JSON.parse(stored));
+        try {
+            setCustomerData(JSON.parse(stored));
+        } catch (e) {
+            console.error("Failed to parse customer data", e);
+        }
     }
   }, []);
 
@@ -40,12 +71,11 @@ export default function MenuLogined({ activePage }: AdminHeaderProps) {
     window.location.assign("/");
   };
 
-  // ✅ เพิ่มฟังก์ชัน Scroll ไปหา Footer
   const scrollToFooter = () => {
     const footerElement = document.getElementById('footer');
     if (footerElement) {
       footerElement.scrollIntoView({ behavior: 'smooth' });
-      setIsNavOpen(false); // ปิดเมนูมือถือถ้าเปิดอยู่
+      setIsNavOpen(false); 
     }
   };
 
@@ -55,8 +85,9 @@ export default function MenuLogined({ activePage }: AdminHeaderProps) {
       const token = localStorage.getItem("token");
       if (token) {
         try {
-            const decoded = jwtDecode<any>(token); 
-            userId = decoded.id || decoded._id || decoded.userId || decoded.sub;
+            // ✅ ใช้ Generic Type แทน any
+            const decoded = jwtDecode<DecodedToken>(token); 
+            userId = decoded.id || decoded._id || decoded.userId || decoded.sub || "";
         } catch (e) { console.error("Token decode error", e); }
       }
 
@@ -64,15 +95,16 @@ export default function MenuLogined({ activePage }: AdminHeaderProps) {
          const storedCustomer = localStorage.getItem("customer");
          if (storedCustomer) {
             try {
-                const obj = JSON.parse(storedCustomer);
-                userId = obj._id || obj.id || obj.userId;
+                const obj = JSON.parse(storedCustomer) as CustomerData;
+                userId = obj._id || obj.id || obj.userId || "";
             } catch (e) { console.error("Parse customer error", e); }
          }
       }
 
       if (!userId) return;
 
-      const res = await api.get(`/api/notifications?userId=${userId}`);
+      // ✅ ใช้ Generic Type สำหรับ response API
+      const res = await api.get<NotificationResponse>(`/api/notifications?userId=${userId}`);
       if (res.data && typeof res.data.unreadCount === 'number') {
         setUnreadCount(res.data.unreadCount);
       }
@@ -154,7 +186,6 @@ export default function MenuLogined({ activePage }: AdminHeaderProps) {
                 </Link>
               ))}
               
-              {/* ✅ ปุ่มติดต่อเรา (Desktop) */}
               <button
                 onClick={scrollToFooter}
                 className="px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-200 text-slate-600 hover:bg-slate-100"
@@ -209,7 +240,6 @@ export default function MenuLogined({ activePage }: AdminHeaderProps) {
                     </div>
                 </div>
             ) : (
-                // Case: Not Logged In (แสดงปุ่ม Login แทน)
                 <Link href="/customer/login" className="border border-blue-900 text-blue-900 px-5 py-2 rounded-full font-semibold hover:bg-blue-900 hover:text-white transition text-sm">
                     เข้าสู่ระบบ
                 </Link>
@@ -234,7 +264,6 @@ export default function MenuLogined({ activePage }: AdminHeaderProps) {
                   </Link>
                 ))}
                 
-                {/* ✅ ปุ่มติดต่อเรา (Mobile) */}
                 <button
                     onClick={scrollToFooter}
                     className="text-left px-4 py-3 rounded-md text-sm font-medium transition-colors text-slate-700 hover:bg-slate-100 w-full"
@@ -245,7 +274,6 @@ export default function MenuLogined({ activePage }: AdminHeaderProps) {
             </div>
           )}
 
-          {/* Animation & Smooth Scroll */}
           <style jsx global>{`
             @keyframes fade-in-down {
               from { opacity: 0; transform: translateY(-10px); }
