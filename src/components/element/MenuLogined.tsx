@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { jwtDecode } from "jwt-decode"; 
 import api from '@/services/api'; 
+// import {CustomerToken} from '@/routes/session';
 
 type AdminHeaderProps = {
   activePage: string;
@@ -35,7 +36,8 @@ export default function MenuLogined({ activePage }: AdminHeaderProps) {
   const logout = () => {
     localStorage.clear();
     setIsMenuOpen(false); 
-    window.location.assign("/customer/login");
+    // window.location.assign("/customer/login");
+    window.location.assign("/");
   };
 
   // ✅ เพิ่มฟังก์ชัน Scroll ไปหา Footer
@@ -118,7 +120,7 @@ export default function MenuLogined({ activePage }: AdminHeaderProps) {
                 </button>
 
                 <div className="flex items-center gap-3">
-                    <Link href="/customer/mainpage" className="flex items-center gap-2">
+                    <Link href="/" className="flex items-center gap-2">
                         <Image
                             src="/fotos/Logo.png"
                             alt="logo"

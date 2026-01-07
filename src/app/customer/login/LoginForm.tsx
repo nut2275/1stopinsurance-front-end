@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import api from "@/services/api";
 import Link from "next/link";
 import { AxiosError } from "axios";
-import { useRouter } from "next/navigation";
+import { useRouter , useSearchParams} from "next/navigation";
 import MenuLogin from "@/components/element/MenuLogin";
 import { routesCustomersSession, routesAgentsSession } from "@/routes/session";
 
@@ -31,7 +31,9 @@ const LoginForm = () => {
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ username: "", password: "" });
   const [message, setMessage] = useState("");
+
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     // check if customer session
@@ -63,7 +65,9 @@ const LoginForm = () => {
     setMessage("");
 
     try {
+      
       const res = await api.post("/customers/login", form);
+
 
       // ตรวจสอบว่ามี data ส่งกลับมาหรือไม่
       if (!res.data || !res.data.token) {
@@ -88,9 +92,18 @@ const LoginForm = () => {
          }
       }
 
+      const returnUrl = searchParams.get("returnUrl");
+      if (returnUrl) {
+          // ถ้ามี returnUrl ให้เด้งกลับไปหน้านั้น
+          window.location.assign(returnUrl);
+      } else {
+          // ถ้าไม่มี ให้ไปหน้าหลักตามปกติ
+          window.location.assign("/");
+      }
+
       // ✅ 4. Redirect
       // alert(`ยินดีต้อนรับคุณ ${customer?.first_name || 'ผู้ใช้งาน'}`); // Optional: ตัด alert ออกเพื่อให้ flow ลื่นไหลเหมือนเว็บสมัยใหม่
-      window.location.assign("/customer/mainpage");
+      // window.location.assign("/customer/mainpage");
 
     } catch (err: unknown) {
       console.error("Login error:", err);

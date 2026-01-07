@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import Image from "next/image";
 import MenuLogined from "@/components/element/MenuLogined";
 import api from "@/services/api";
+import { routesCustomersSession } from "@/routes/session"
 
 // ✅ Interface สำหรับข้อมูลดิบจาก Backend/LocalStorage
 interface RawInsurancePlan {
@@ -58,6 +59,7 @@ export default function SummaryPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const planId = searchParams.get("id");
+  const pathname = usePathname(); // ดึง path (เช่น /customer/car-insurance/summary)
 
   const [agentProfile, setAgentProfile] = useState<AgentProfile | null>(null);
   const [agentLoading, setAgentLoading] = useState(false); 
@@ -70,6 +72,10 @@ export default function SummaryPage() {
   const [agentQuery, setAgentQuery] = useState("");
   const [agentResults, setAgentResults] = useState<AgentProfile[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
+
+
+
+
 
   const getBrandLogo = (brandName: string) => {
     if (!brandName) return "/fotos/Insur1.png";
@@ -88,6 +94,8 @@ export default function SummaryPage() {
       return;
     }
     const storedData = localStorage.getItem("recommendedPlans");
+    // console.log(storedData);
+    
     if (storedData) {
       // ✅ แปลง Type เป็น RawInsurancePlan[] แทน any
       const allPlans: RawInsurancePlan[] = JSON.parse(storedData);
@@ -116,6 +124,21 @@ export default function SummaryPage() {
     }
     setLoading(false);
   }, [planId]);
+
+
+  const checkCustomerSession = () => {
+    const session = routesCustomersSession();
+    if (!session) {
+      // 2. สร้าง Full Path ปัจจุบัน
+      // ผลลัพธ์: /customer/car-insurance/summary?id=692ef...
+      const currentPath = `${pathname}?${searchParams.toString()}`;
+
+      // 3. ส่งไปหน้า Login พร้อมแนบตัวแปร returnUrl (ต้อง encode ด้วยนะ)
+      router.push(`/customer/login?returnUrl=${encodeURIComponent(currentPath)}`);
+      return false;
+    }
+    return true;
+  };
 
   // ✅ Search Agent Effect
   useEffect(() => {
@@ -147,9 +170,15 @@ export default function SummaryPage() {
   }, [agentQuery]);
 
   const handleProceed = () => {
-      if (planId) {
-          router.push(`/customer/car-insurance/upload-documents?id=${planId}&agent=${agentCode}`);
-      }
+    const isSessionValid = checkCustomerSession();
+    if (!isSessionValid) {
+      alert("กรุณาเข้าสู่ระบบก่อนดำเนินการต่อ");
+      return;
+    }
+
+    if (planId) {
+        router.push(`/customer/car-insurance/upload-documents?id=${planId}&agent=${agentCode}`);
+    }
   };
 
   if (loading) return <div className="text-center py-20">กำลังโหลดข้อมูล...</div>;
