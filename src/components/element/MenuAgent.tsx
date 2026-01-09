@@ -1,27 +1,20 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Bell, ChevronDown, UserCircle, LogOut, Menu, X } from 'lucide-react';
+import { Bell, ChevronDown, UserCircle, LogOut, Menu, X, User } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
 import { jwtDecode } from "jwt-decode";
 import api from '@/services/api';
 
-// Type สำหรับ Token
+// --- Type Definitions ---
 interface DecodedToken {
   id: string;
   role: string;
   exp: number;
 }
 
-// Type สำหรับ Agent
-interface AgentData {
-  first_name: string;
-  verification_status: string;
-}
-
-// Type สำหรับ Response ของ Notification API
 interface NotificationResponse {
   success: boolean;
   unreadCount: number;
@@ -33,31 +26,27 @@ type AdminHeaderProps = {
 
 const navLinks = [
   { href: '/agent/agent_dashboard', label: 'แดชบอร์ด' },
-  { href: '/agent/agentCustomerPolicy', label: 'จัดการกรมธรรม์ลูกค้า' },
+  { href: '/agent/agentCustomerPolicy', label: 'กรมธรรม์ลูกค้า' }, // ย่อชื่อให้สั้นลงนิดนึงเพื่อประหยัดที่
   { href: '/agent/agent_manage_customer', label: 'จัดการลูกค้า' },
 ];
 
 export default function MenuAgent({ activePage }: AdminHeaderProps) {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isNavOpen, setIsNavOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  // Hooks
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const pathname = usePathname();
   
-  // State
   const [displayName, setDisplayName] = useState("Agent");
   const [unreadCount, setUnreadCount] = useState(0); 
 
   const logout = () => {
     localStorage.removeItem("token");
-    localStorage.removeItem("agentData"); // ลบข้อมูล cached ด้วย
-    setIsMenuOpen(false); 
+    localStorage.removeItem("agentData");
     window.location.assign("/agent/login");
   };
 
-  // ✅ ฟังก์ชันดึงจำนวนแจ้งเตือน (แยกออกมาเพื่อให้เรียกใช้ซ้ำได้)
   const fetchUnreadCount = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -65,12 +54,8 @@ export default function MenuAgent({ activePage }: AdminHeaderProps) {
 
       const decoded = jwtDecode<DecodedToken>(token);
       if (decoded && decoded.id) {
-        // ใช้ decoded.id หรือ decoded.userId ตามโครงสร้าง Token ของคุณ
-        // จากรูป console log (id: ObjectId) น่าจะเป็น field 'id'
         const res = await api.get<NotificationResponse>(`/api/notifications?userId=${decoded.id}`);
-        
         if (res.data && typeof res.data.unreadCount === 'number') {
-          console.log("Unread Count Updated:", res.data.unreadCount); // Debug ดูค่า
           setUnreadCount(res.data.unreadCount);
         }
       }
@@ -79,181 +64,192 @@ export default function MenuAgent({ activePage }: AdminHeaderProps) {
     }
   };
 
-  // ✅ Logic ตรวจสอบสถานะ + Initial Load
   useEffect(() => {
-    // initData();
-    fetchUnreadCount(); // เรียกดึง Notification ครั้งแรก
-
-    // ตั้ง Interval เช็คทุก 1 นาที
+    fetchUnreadCount();
     const interval = setInterval(fetchUnreadCount, 60000);
-
-    // ✅ เพิ่ม Listener รอรับคำสั่ง refreshNotification จากหน้าอื่น
     window.addEventListener('refreshNotification', fetchUnreadCount);
-
     return () => {
         clearInterval(interval);
         window.removeEventListener('refreshNotification', fetchUnreadCount);
     };
-
   }, [router, pathname]);
 
-
-  // Click Outside logic
+  // Click Outside to close dropdown
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsMenuOpen(false);
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [menuRef]);
+  }, [dropdownRef]);
+
+  // ปิด Mobile Menu เมื่อเปลี่ยนหน้า
+  useEffect(() => {
+    setIsMobileNavOpen(false);
+  }, [pathname]);
 
   return (
-    <div className="top-0 z-50" style={{zIndex:9999}}>
-      {/* Header */}
-      <header className="sticky bg-white/95 backdrop-blur-sm shadow-sm px-4 sm:px-6 h-20 flex items-center justify-between border-b border-slate-200">
+    <>
+      {/* Spacer เพื่อดันเนื้อหาลงมา เพราะ Navbar เป็น Fixed */}
+      <div className="h-16 md:h-20 w-full bg-transparent" />
 
-        {/* Desktop Right Side */}
-        <div className='flex'>
+      {/* --- Navbar หลัก (Fixed Top) --- */}
+      <header className="fixed top-0 left-0 right-0 z-[100] bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm h-16 md:h-20 transition-all duration-200">
+        <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">
+
+          {/* 1. Left: Logo & Mobile Hamburger */}
+          <div className="flex items-center gap-3 md:gap-6">
             {/* Mobile Hamburger */}
             <button
-                onClick={() => setIsNavOpen(!isNavOpen)}
-                className="sm:hidden text-slate-600 hover:text-blue-600 p-2 rounded-md"
-                >
-                {isNavOpen ? <X size={26} /> : <Menu size={26} />}
+                onClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
+                className="md:hidden text-slate-500 hover:text-blue-600 p-1.5 rounded-md hover:bg-slate-100 transition-colors"
+            >
+                {isMobileNavOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
 
             {/* Logo */}
-            <div className="flex items-center gap-3">
-                <Link href="/" className="flex items-center gap-2">
+            <Link href="/" className="flex items-center gap-2">
+                <div className="relative w-8 h-8 md:w-10 md:h-10 shrink-0">
                     <Image
                         src="/fotos/Logo.png"
-                        alt="logo"
-                        width="48"
-                        height="48"
-                        className="h-10 w-auto"
+                        alt="1StopInsurance"
+                        fill
+                        className="object-contain"
                         onError={(e) => {
                             (e.target as HTMLImageElement).src = "https://placehold.co/48x48/1d4ed8/FFFFFF?text=1S";
                         }}
                     />
-                    <p  className="text-lg sm:text-xl font-bold text-blue-800 sm:block">
+                </div>
+                <span className="text-lg md:text-xl font-bold text-blue-800 tracking-tight hidden sm:block">
                     1StopInsurance
-                    </p>
-                </Link>
-            </div>
-        </div>
-
-
-        {/* Desktop Nav */}
-          <div className="hidden sm:flex gap-2 bg-white p-3 rounded-full m-4 shadow">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-200 ${
-                  activePage === link.href
-                    ? 'bg-blue-600 text-white shadow-md'
-                    : 'text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
+                </span>
+            </Link>
           </div>
 
-        <div className=" flex items-center gap-5">
-            {/* ✅ Notification Section */}
-            <Link href={'/agent/notification'} className={`relative w-9 h-9 flex items-center justify-center transition-colors rounded-full hover:bg-slate-100 ${
-                  activePage === "notification"
-                    ? 'text-blue-600 bg-blue-50'
-                    : 'text-slate-500'
-                }`}>
+          {/* 2. Center: Desktop Navigation */}
+          <nav className="hidden md:flex items-center gap-1 bg-slate-50/50 p-1.5 rounded-full border border-slate-200/50">
+            {navLinks.map((link) => {
+              const isActive = activePage === link.href;
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`
+                    px-5 py-2 rounded-full text-sm font-semibold transition-all duration-200
+                    ${isActive 
+                        ? 'bg-blue-600 text-white shadow-md shadow-blue-200' 
+                        : 'text-slate-600 hover:bg-slate-200/80 hover:text-slate-900'}
+                  `}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+          </nav>
 
-                <Bell size={24} />
-                
-                {/* แสดงจุดแดงเมื่อมี unreadCount > 0 */}
+          {/* 3. Right: Actions (Notification & Profile) */}
+          <div className="flex items-center gap-3 md:gap-5">
+            
+            {/* Notification Bell */}
+            <Link 
+              href={'/agent/notification'} 
+              className={`
+                relative w-10 h-10 flex items-center justify-center rounded-full transition-all duration-200
+                ${activePage === "notification" ? 'bg-blue-50 text-blue-600' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'}
+              `}
+            >
+                <Bell size={22} />
                 {unreadCount > 0 && (
-                  <span className="absolute top-1 right-1 flex h-4 w-4">
+                  <span className="absolute top-2 right-2 flex h-3 w-3">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 text-[10px] text-white justify-center items-center font-bold border-2 border-white">
-                      {unreadCount > 9 ? '9+' : unreadCount}
-                    </span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 border-2 border-white"></span>
                   </span>
                 )}
             </Link>
 
-            {/* User Dropdown */}
-            <div className="relative" ref={menuRef}>
-                <button
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="flex items-center gap-2 text-slate-700 hover:bg-slate-100 p-2 rounded-full transition-colors"
-                >
-                <UserCircle size={28} className="text-blue-800" />
-                <span className="font-semibold text-sm hidden md:block">{displayName}</span>
+            {/* Profile Dropdown */}
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className={`
+                    flex items-center gap-2 pl-2 pr-2 md:pr-3 py-1.5 rounded-full border border-transparent transition-all duration-200
+                    ${isDropdownOpen ? 'bg-blue-50 border-blue-100' : 'hover:bg-slate-50 hover:border-slate-200'}
+                `}
+              >
+                <div className="w-8 h-8 md:w-9 md:h-9 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 ring-2 ring-white shadow-sm">
+                    <UserCircle size={24} />
+                </div>
+                
+                {/* ชื่อแสดงเฉพาะจอใหญ่ (Tablet ขึ้นไป) */}
+                <span className="font-semibold text-sm text-slate-700 hidden lg:block max-w-[100px] truncate">
+                    {displayName}
+                </span>
+                
                 <ChevronDown
                     size={16}
-                    className={`transition-transform ${isMenuOpen ? 'rotate-180' : ''}`}
+                    className={`text-slate-400 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`}
                 />
-                </button>
+              </button>
 
-                {isMenuOpen && (
-                <div className="cursor-pointer absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl py-2 animate-fade-in-down">
-                    <div className="px-4 py-2 border-b">
-                    <Link href={"profile"} className="text-sm font-semibold text-slate-800">Profile</Link>
-                    <p className="text-xs text-slate-500">Agent</p>
+              {/* Dropdown Menu (Standard UI) */}
+              {isDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl ring-1 ring-black/5 z-[100] overflow-hidden origin-top-right animate-in fade-in zoom-in-95 duration-100">
+                    <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/50">
+                        <p className="text-sm font-bold text-slate-800 truncate">{displayName}</p>
+                        <p className="text-xs text-slate-500">Agent Account</p>
                     </div>
-                    <div
-                    onClick={logout}
-                    className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                    >
-                        <LogOut size={16} />
-                        <span>ออกจากระบบ</span>
+                    
+                    <div className="p-1">
+                        <Link 
+                            href={"/agent/profile"} 
+                            className="flex items-center gap-3 px-3 py-2.5 text-sm text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                            onClick={() => setIsDropdownOpen(false)}
+                        >
+                            <User size={18} className="text-slate-400" />
+                            ข้อมูลส่วนตัว (Profile)
+                        </Link>
+                    </div>
+
+                    <div className="border-t border-slate-100 p-1">
+                        <button
+                            onClick={logout}
+                            className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                        >
+                            <LogOut size={18} />
+                            ออกจากระบบ
+                        </button>
                     </div>
                 </div>
-                )}
+              )}
             </div>
-        </div>
-
-      </header>
-
-      {/* Mobile Nav */}
-      {isNavOpen && (
-        <div className="sm:hidden bg-white shadow-md border-t border-slate-200 animate-fade-in-down">
-          <div className="flex flex-col p-3 space-y-2">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  activePage === link.href
-                    ? 'bg-blue-600 text-white'
-                    : 'text-slate-700 hover:bg-slate-100'
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
           </div>
         </div>
-      )}
 
-      {/* Animation */}
-      <style jsx global>{`
-        @keyframes fade-in-down {
-          from {
-            opacity: 0;
-            transform: translateY(-10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        .animate-fade-in-down {
-          animation: fade-in-down 0.2s ease-out;
-        }
-      `}</style>
-    </div>
+        {/* --- Mobile Navigation Menu (Slide Down) --- */}
+        {isMobileNavOpen && (
+            <div className="md:hidden absolute top-16 left-0 w-full bg-white border-b border-slate-200 shadow-lg z-50 animate-in slide-in-from-top-5">
+                <div className="flex flex-col p-4 space-y-2">
+                    {navLinks.map((link) => (
+                        <Link
+                            key={link.href}
+                            href={link.href}
+                            onClick={() => setIsMobileNavOpen(false)}
+                            className={`
+                                flex items-center px-4 py-3 rounded-xl text-sm font-semibold transition-colors
+                                ${activePage === link.href 
+                                    ? 'bg-blue-50 text-blue-700' 
+                                    : 'text-slate-600 hover:bg-slate-50'}
+                            `}
+                        >
+                            {link.label}
+                        </Link>
+                    ))}
+                </div>
+            </div>
+        )}
+      </header>
+    </>
   );
 }
