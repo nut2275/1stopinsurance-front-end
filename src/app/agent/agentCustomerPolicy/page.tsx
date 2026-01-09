@@ -13,19 +13,21 @@ import MenuAgent from '@/components/element/MenuAgent';
 
 import { useRouter } from 'next/navigation';
 import { routesAgentsSession } from '@/routes/session';
+import { AgentStatus } from "@/hooks/useAgentStatus";
+import { Loader2 } from 'lucide-react';
 
 const ITEMS_PER_PAGE = 10;
 
 export default function AgentPolicyPage() {
+  const router = useRouter();
+  const { loading: authLoading } = AgentStatus();
+
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [filteredData, setFilteredData] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
 
-  // ✅ ใช้ FilterTab อย่างเดียวได้เลย (เพราะเราแก้ใน types.ts แล้ว)
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
   
-  // ✅ เพิ่ม about_to_expire ใน state เริ่มต้น
   const [statusCounts, setStatusCounts] = useState({ 
       all: 0, pending: 0, pending_payment: 0, active: 0, about_to_expire: 0, rejected: 0 
   });
@@ -51,13 +53,21 @@ export default function AgentPolicyPage() {
     try {
       setLoading(true);
 
-      const sesion = routesAgentsSession();
-      if (!sesion) {
+      // 1. เช็คว่ามี Session Object หรือไม่ (เพื่อความชัวร์ว่า Login แล้ว)
+      const session = routesAgentsSession();
+      if (!session) {
           router.push("/agent/login");
           return;
       }
-      const token = localStorage.getItem("token");
       
+      // 2. ✅ ดึง Raw Token จาก localStorage (เพื่อส่งไปยืนยันตัวตน)
+      const token = localStorage.getItem("token");
+      if (!token) {
+          router.push("/agent/login");
+          return;
+      }
+
+      // 3. ✅ ส่ง token ที่ถูกต้องไปใน Header
       const res = await api.get<Purchase[]>("/purchase/agent/my-history", { 
         headers: { Authorization: `Bearer ${token}` } 
       });
@@ -68,24 +78,17 @@ export default function AgentPolicyPage() {
           all: res.data.length,
           pending: res.data.filter(p => p.status === 'pending').length,
           pending_payment: res.data.filter(p => p.status === 'pending_payment').length,
-          
-          // Active = เป็น active และ "ยังไม่ใกล้หมดอายุ"
           active: res.data.filter(p => p.status === 'active' && !checkIsAboutToExpire(p.end_date)).length,
-          
-          // About to Expire = เป็น active/about_to_expire และ "ใกล้หมดอายุ"
           about_to_expire: res.data.filter(p => (p.status === 'active' || p.status === 'about_to_expire') && checkIsAboutToExpire(p.end_date)).length,
-          
           rejected: res.data.filter(p => p.status === 'rejected' || p.status === 'expired').length,
       };
       setStatusCounts(counts);
 
     } catch (error) {
         console.error("Error fetching data:", error);
-        const err = error as AxiosError;
-        if (err.response && err.response.status === 401) {
-             window.location.href = "/agent/login";
-        }
-    } finally { setLoading(false); }
+    } finally { 
+        setLoading(false); 
+    }
   };
 
   const fetchBrands = async () => {
@@ -99,7 +102,13 @@ export default function AgentPolicyPage() {
       if(!brand || !model) return [];
       try { return (await api.get(`/car-master/sub-models?brand=${encodeURIComponent(brand)}&model=${encodeURIComponent(model)}`)).data; } catch(e){return []}
   };
-  useEffect(() => { fetchData(); fetchBrands(); }, []);
+
+  useEffect(() => {
+    if (!authLoading) {
+        fetchData();
+        fetchBrands();
+    }
+  }, [authLoading]); 
 
   const handleFilterBrand = async (e: ChangeEvent<HTMLSelectElement>) => {
       const val = e.target.value; setFilterCarBrand(val); setFilterCarModel(""); setFilterCarSubModel("");
@@ -109,10 +118,15 @@ export default function AgentPolicyPage() {
       const val = e.target.value; setFilterCarModel(val); setFilterCarSubModel("");
       if(val) { const s = await fetchSubModels(filterCarBrand, val); setSubModelOptions(s); } else setSubModelOptions([]);
   };
+  
   const handleSave = async (id: string, data: Partial<EditFormState>) => {
       try {
-          const token = localStorage.getItem("token");
-          await api.put(`/purchase/agent/${id}`, data, { headers: { Authorization: `Bearer ${token}` } });
+          const token = localStorage.getItem("token"); // ✅ ใช้ Token ตรงนี้ด้วย
+          if(!token) return;
+
+          await api.put(`/purchase/agent/${id}`, data, { 
+              headers: { Authorization: `Bearer ${token}` } 
+          });
           alert("บันทึกเรียบร้อย");
           setIsModalOpen(false);
           fetchData(); 
@@ -123,7 +137,6 @@ export default function AgentPolicyPage() {
   useEffect(() => {
     let temp = purchases;
 
-    // Filter by Tab
     if (activeTab === 'pending') {
         temp = temp.filter(p => p.status === 'pending');
     } else if (activeTab === 'pending_payment') {
@@ -136,7 +149,6 @@ export default function AgentPolicyPage() {
         temp = temp.filter(p => p.status === 'rejected' || p.status === 'expired');
     }
 
-    // Other Filters
     if (searchName) temp = temp.filter((p) => (`${p.customer_id?.first_name} ${p.customer_id?.last_name}`).toLowerCase().includes(searchName.toLowerCase()));
     if (searchCompany !== "ทั้งหมด") temp = temp.filter((p) => (p.carInsurance_id?.insuranceBrand || "") === searchCompany);
     if (searchPolicyNo) temp = temp.filter((p) => (p.policy_number || "").toLowerCase().includes(searchPolicyNo.toLowerCase()));
@@ -156,6 +168,15 @@ export default function AgentPolicyPage() {
   }, [activeTab, searchName, searchCompany, searchPolicyNo, sortOrder, filterCarBrand, filterCarModel, filterCarSubModel, purchases]);
 
   const currentItems = filteredData.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  if (authLoading) {
+      return (
+          <div className="flex flex-col h-screen items-center justify-center bg-slate-50">
+              <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
+              <p className="mt-4 text-slate-500">กำลังตรวจสอบสิทธิ์...</p>
+          </div>
+      );
+  }
 
   return (
     <>

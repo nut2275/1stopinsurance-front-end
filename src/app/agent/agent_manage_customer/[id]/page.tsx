@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { routesAgentsSession } from '@/routes/session';
 import api from '@/services/api'; 
+import { AgentStatus } from "@/hooks/useAgentStatus"; // ✅ 1. Import Hook
 
 // --- 1. Type Definitions (Strict Mode) ---
 
@@ -81,12 +82,15 @@ interface TabConfig {
 }
 
 const AgentCustomerDetailPage = () => {
+  // ✅ 2. ประกาศ Hooks ทั้งหมดก่อน
   const params = useParams();
   const router = useRouter();
-  
   const customerId = typeof params.id === 'string' ? params.id : '';
 
-  const [loading, setLoading] = useState<boolean>(true);
+  // เรียก Hook เช็คสถานะ (ได้ authLoading มาด้วย)
+  const { loading: authLoading } = AgentStatus();
+
+  const [loading, setLoading] = useState<boolean>(true); // Loading ของข้อมูลลูกค้า
   const [activeTab, setActiveTab] = useState<TabType>('garage');
   
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
@@ -94,37 +98,50 @@ const AgentCustomerDetailPage = () => {
   const [history, setHistory] = useState<PurchaseHistory[]>([]);
   const [stats, setStats] = useState<CustomerStats>({ totalSpent: 0, activePolicies: 0, totalPolicies: 0 });
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!customerId) return;
+  // ✅ 3. ฟังก์ชันดึงข้อมูล (รัดกุมขึ้น)
+  const fetchData = async () => {
+    if (!customerId) return;
+    
+    try {
+      setLoading(true);
 
-      try {
-        const session = routesAgentsSession();
-        if(!session) {
-            router.push('/agent/login');
-            return;
-        }
-
-        const res = await api.get<CustomerDetailResponse>(`/agents/customer-profile/${customerId}`, {
-            headers: { Authorization: `Bearer ${session}` }
-        });
-
-        if (res.data) {
-            setProfile(res.data.profile);
-            setGarage(res.data.garage || []);
-            setHistory(res.data.history || []);
-            setStats(res.data.stats || { totalSpent: 0, activePolicies: 0, totalPolicies: 0 });
-        }
-        
-      } catch (error: unknown) {
-        console.error("Error fetching customer detail:", error);
-      } finally {
-        setLoading(false);
+      const session = routesAgentsSession();
+      if(!session) {
+         router.push('/agent/login');
+         return;
       }
-    };
+      const agentId = session.id;
 
-    fetchData();
-  }, [customerId, router]);
+      if (!agentId) {
+        console.error("Token invalid");
+        router.push('/agent/login');
+        return;
+      }
+
+      const res = await api.get<CustomerDetailResponse>(`/agents/customer-profile/${customerId}`, {
+         headers: { Authorization: `Bearer ${session}` }
+      });
+
+      if (res.data) {
+         setProfile(res.data.profile);
+         setGarage(res.data.garage || []);
+         setHistory(res.data.history || []);
+         setStats(res.data.stats || { totalSpent: 0, activePolicies: 0, totalPolicies: 0 });
+      }
+      
+    } catch (error: unknown) {
+      console.error("Error fetching customer detail:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ 4. useEffect (รอ authLoading ก่อนค่อยโหลดข้อมูล)
+  useEffect(() => {
+    if (!authLoading) {
+        fetchData();
+    }
+  }, [customerId, router, authLoading]);
 
   // ✅ ฟังก์ชันเปิดหน้าดูเอกสาร
   const handleViewDocument = (purchaseId: string) => {
@@ -137,8 +154,6 @@ const AgentCustomerDetailPage = () => {
 
   // ✅ Helper Function: หาข้อมูลการซื้อล่าสุดของรถคันนี้
   const getLatestPurchaseForCar = (registration: string) => {
-    // หาอันล่าสุด (เรียงตาม createdAt ใหม่สุด หรือ index 0 ก็ได้ ถ้า API ส่งมาเรียงแล้ว)
-    // ตรงนี้สมมติว่าหาเจอตัวแรกที่ match registration
     return history.find(h => h.car_id?.registration === registration);
   };
 
@@ -167,9 +182,24 @@ const AgentCustomerDetailPage = () => {
   const tabs: TabConfig[] = [
     { id: 'garage', label: 'โรงรถ', count: garage.length, icon: Car },
     { id: 'history', label: 'ประวัติการซื้อ', count: history.length, icon: History },
-    { id: 'docs', label: 'เอกสาร', icon: FileText }
+    // { id: 'docs', label: 'เอกสาร', icon: FileText }
   ];
 
+  // -------------------------------------------------------------
+  // ✅ 5. โซนการ Return (Loading Gates) ต้องอยู่ล่างสุด
+  // -------------------------------------------------------------
+
+  // Gate 1: ถ้ากำลังเช็คสิทธิ์ (Auth) ให้แสดง Loading
+  if (authLoading) {
+      return (
+          <div className="flex flex-col h-screen items-center justify-center bg-slate-50">
+              <Loader2 className="w-10 h-10 animate-spin text-indigo-600" />
+              <p className="mt-4 text-slate-500">กำลังตรวจสอบสิทธิ์...</p>
+          </div>
+      );
+  }
+
+  // Gate 2: ถ้าเช็คสิทธิ์ผ่านแล้ว แต่กำลังโหลดข้อมูลลูกค้า
   if (loading) return (
     <div className="h-screen flex flex-col items-center justify-center bg-slate-50 gap-3">
         <Loader2 className="w-10 h-10 animate-spin text-indigo-600" />
@@ -177,6 +207,7 @@ const AgentCustomerDetailPage = () => {
     </div>
   );
 
+  // Gate 3: ถ้าโหลดเสร็จแล้วแต่ไม่เจอข้อมูล
   if (!profile) return (
     <div className="flex flex-col items-center justify-center h-[80vh] text-slate-500">
         <p className="text-lg font-medium">ไม่พบข้อมูลลูกค้า</p>
@@ -184,6 +215,7 @@ const AgentCustomerDetailPage = () => {
     </div>
   );
 
+  // Gate 4: หน้าจอหลัก
   return (
     <>
       <MenuAgent activePage='/agent/agent_manage_customer' />
@@ -191,15 +223,6 @@ const AgentCustomerDetailPage = () => {
       <div className="min-h-screen bg-slate-50/30 p-6 md:p-8 font-sans">
         <div className="max-w-7xl mx-auto space-y-6">
             
-            {/* Breadcrumb */}
-            {/* <nav className="flex items-center text-sm text-slate-500 mb-2">
-                <button onClick={() => router.back()} className="hover:text-indigo-600 transition-colors flex items-center gap-1">
-                    <ArrowLeft className="w-4 h-4" /> ลูกค้าทั้งหมด
-                </button>
-                <span className="mx-2">/</span>
-                <span className="text-slate-800 font-medium">รายละเอียดลูกค้า</span>
-            </nav> */}
-
             {/* --- 1. Hero Header Card --- */}
             <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-slate-200 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-gradient-to-bl from-indigo-50/80 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
@@ -229,11 +252,6 @@ const AgentCustomerDetailPage = () => {
                                 <h1 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight">
                                     {profile.first_name} {profile.last_name}
                                 </h1>
-                                {/* <p className="text-slate-500 text-sm flex items-center gap-2 mt-1">
-                                    <span className="inline-flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded text-xs font-medium text-slate-600">
-                                        Customer ID: {profile._id.slice(-6).toUpperCase()} <Copy className="w-3 h-3 cursor-pointer hover:text-indigo-600"/>
-                                    </span>
-                                </p> */}
                             </div>
 
                             <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-600 pt-1">
@@ -309,7 +327,6 @@ const AgentCustomerDetailPage = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                             {garage.map((car) => {
                                 const purchase = getLatestPurchaseForCar(car.registration);
-                                // ✅ ใช้ hasAnyDocument แทน hasDocument เพื่อเช็คว่ามีไฟล์ใดๆ ก็ตาม
                                 const canView = hasAnyDocument(purchase);
 
                                 return (
@@ -455,7 +472,7 @@ const AgentCustomerDetailPage = () => {
                     )}
 
                     {/* --- DOCUMENTS TAB --- */}
-                    {activeTab === 'docs' && (
+                    {/* {activeTab === 'docs' && (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
                             <div className="bg-white p-6 rounded-2xl border border-slate-200 flex flex-col items-center gap-4 hover:border-indigo-400 hover:shadow-lg cursor-pointer transition-all group relative overflow-hidden">
                                 <div className="absolute top-0 left-0 w-full h-1 bg-indigo-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
@@ -471,7 +488,7 @@ const AgentCustomerDetailPage = () => {
                                 </div>
                             </div>
                         </div>
-                    )}
+                    )} */}
 
                 </div>
             </div>

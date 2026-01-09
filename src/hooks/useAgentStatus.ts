@@ -4,23 +4,20 @@
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { jwtDecode } from "jwt-decode";
-import api from "@/services/api"; // path api ของคุณ
+import api from "@/services/api";
 
-// Interface (ถ้ามีไฟล์ type แยก import มาใช้ได้เลยครับ)
 interface DecodedToken {
   id: string;
-  // ... field อื่นๆ
 }
 
 interface AgentData {
   first_name: string;
   verification_status: string;
-  // ... field อื่นๆ
 }
 
 export const AgentStatus = () => {
   const [displayName, setDisplayName] = useState<string>("");
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(true); // เริ่มต้นเป็น true
   const router = useRouter();
   const pathname = usePathname();
 
@@ -29,40 +26,46 @@ export const AgentStatus = () => {
       try {
         const token = localStorage.getItem("token");
         
-        // ถ้าไม่มี token อาจจะ redirect ไป login หรือไม่ทำอะไร (แล้วแต่ logic)
-        if (!token) return;
-
+        // กรณีไม่มี Token
+        if (!token) {
+           setLoading(false); // หยุดโหลดเพื่อให้ Dashboard ไปจัดการ Redirect Login ต่อ
+           return;
+        }
 
         const decoded = jwtDecode<DecodedToken>(token);
 
         if (decoded && decoded.id) {
-          // 1. ดึงข้อมูล Agent
           const agentRes = await api.get<AgentData>(`/agents/${decoded.id}`);
           const agent = agentRes.data;
 
-          // Set ชื่อ
           if (agent.first_name) {
             setDisplayName(agent.first_name);
           }
 
-          // เช็ค Status
+          // --- จุดแก้ไขสำคัญ ---
           if (agent.verification_status === 'in_review' || agent.verification_status === 'rejected') {
-            // ป้องกัน Redirect loop ถ้าอยู่หน้า status อยู่แล้ว
             if (pathname !== '/agent/status') {
               router.replace('/agent/status');
+              // ❌ ห้ามสั่ง setLoading(false) ตรงนี้
+              // ปล่อยให้ loading ค้างเป็น true ไว้ หน้า Dashboard จะได้แสดง Loading Spinner รอจนกว่าจะเปลี่ยนหน้าเสร็จ
+              return; 
             }
           }
         }
+        
+        // ✅ ถ้าผ่านมาถึงตรงนี้แปลว่า Status ปกติ (หรืออยู่ที่หน้า status แล้ว)
+        // ค่อยสั่งหยุดโหลด
+        setLoading(false);
+
       } catch (error) {
         console.error("Failed to initialize agent data:", error);
-      } finally {
-        setLoading(false);
-      }
+        setLoading(false); // Error ก็หยุดโหลด เพื่อให้ UI แสดงผล (หรือแสดง Error)
+      } 
+      // ❌ ลบ finally block ทิ้งไปเลย เพราะเราคุม setLoading เองแล้ว
     };
 
     initData();
-  }, [router, pathname]); // dependency array
+  }, [router, pathname]);
 
-  // Return ค่าที่ Component ต้องใช้
   return { displayName, loading };
 };

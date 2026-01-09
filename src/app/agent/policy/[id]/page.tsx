@@ -11,6 +11,10 @@ import {
 import MenuAgent from "@/components/element/MenuAgent";
 import api from "@/services/api";
 
+// ✅ Import Helpers มาตรฐาน
+import { routesAgentsSession } from '@/routes/session';
+import { AgentStatus } from "@/hooks/useAgentStatus";
+
 // --- Type Definitions ---
 interface PurchaseDetail {
   _id: string;
@@ -56,36 +60,54 @@ export default function AgentPolicyDocumentPage() {
   const router = useRouter();
   const purchaseId = typeof params.id === 'string' ? params.id : '';
 
+  // ✅ 1. เรียก Hook เช็คสถานะ
+  const { loading: authLoading } = AgentStatus();
+
   const [data, setData] = useState<PurchaseDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!purchaseId) return;
-      try {
-        setLoading(true);
-        const token = localStorage.getItem("token");
-        if (!token) {
-            router.push('/login');
-            return;
-        }
+  // ✅ 2. ปรับปรุง fetchData
+  const fetchData = async () => {
+    if (!purchaseId) return;
 
-        const res = await api.get<PurchaseDetail>(`/purchase/${purchaseId}`, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
-        
-        setData(res.data);
-      } catch (err) {
-        console.error("Error fetching policy detail:", err);
-        setError("ไม่สามารถโหลดข้อมูลกรมธรรม์ได้");
-      } finally {
-        setLoading(false);
+    try {
+      setLoading(true);
+
+      // 2.1 เช็ค Session ว่า Login หรือยัง
+      const session = routesAgentsSession();
+      if (!session) {
+         router.push('/agent/login');
+         return;
       }
-    };
 
-    fetchData();
-  }, [purchaseId, router]);
+      // 2.2 ดึง Raw Token จาก localStorage สำหรับใส่ Header
+      const token = localStorage.getItem("token");
+      if (!token) {
+         router.push('/agent/login');
+         return;
+      }
+
+      // 2.3 ยิง API
+      const res = await api.get<PurchaseDetail>(`/purchase/${purchaseId}`, {
+         headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      setData(res.data);
+    } catch (err) {
+      console.error("Error fetching policy detail:", err);
+      setError("ไม่สามารถโหลดข้อมูลกรมธรรม์ได้");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ 3. useEffect ทำงานเมื่อ authLoading เป็น false
+  useEffect(() => {
+    if (!authLoading) {
+        fetchData();
+    }
+  }, [purchaseId, router, authLoading]);
 
   const isPdf = (url?: string) => {
     if (!url) return false;
@@ -112,6 +134,21 @@ export default function AgentPolicyDocumentPage() {
     }
   };
 
+  // -------------------------------------------------------------
+  // ✅ 4. Loading Gates
+  // -------------------------------------------------------------
+
+  // Gate 1: กำลังเช็คสิทธิ์
+  if (authLoading) {
+      return (
+          <div className="flex flex-col h-screen items-center justify-center bg-slate-50">
+              <Loader2 className="w-10 h-10 animate-spin text-indigo-600" />
+              <p className="mt-4 text-slate-500">กำลังตรวจสอบสิทธิ์...</p>
+          </div>
+      );
+  }
+
+  // Gate 2: กำลังโหลดข้อมูล
   if (loading) return (
     <div className="h-screen flex flex-col items-center justify-center bg-slate-50 gap-3">
         <Loader2 className="w-10 h-10 animate-spin text-indigo-600" />
@@ -119,6 +156,7 @@ export default function AgentPolicyDocumentPage() {
     </div>
   );
 
+  // Gate 3: Error หรือไม่พบข้อมูล
   if (error || !data) return (
     <div className="h-screen flex flex-col items-center justify-center bg-slate-50 gap-4">
         <AlertCircle className="w-12 h-12 text-red-400" />
@@ -134,7 +172,7 @@ export default function AgentPolicyDocumentPage() {
     { label: "สลิปโอนเงิน", file: data.paymentSlipImage },
     { label: "เอกสารผ่อนชำระ", file: data.installmentDocImage },
     { label: "หนังสือยินยอม", file: data.consentFormImage },
-  ].filter(doc => doc.file); // กรองเอาเฉพาะที่มีไฟล์
+  ].filter(doc => doc.file); 
 
   return (
     <>

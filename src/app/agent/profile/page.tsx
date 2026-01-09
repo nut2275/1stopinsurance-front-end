@@ -6,23 +6,16 @@ import { Agent, UpdateAgentDTO } from "@/types/agent";
 import { 
   User, Phone, MapPin, Calendar, FileBadge, 
   CheckCircle, XCircle, Clock, MessageSquare, CreditCard,
-  Edit2, Save, X, UploadCloud, Camera
+  Edit2, Save, X, UploadCloud, Camera, Loader2
 } from "lucide-react";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
-import { jwtDecode } from "jwt-decode";
 import MenuAgent from "@/components/element/MenuAgent";
-import { routesAgentsSession } from '@/routes/session';
 import { useRouter } from "next/navigation";
 
-// --- Types ---
-interface DecodedToken {
-  username: string;
-  id: string;
-  role: string;
-  exp?: number;
-  iat?: number;
-}
+// ✅ Import Helpers มาตรฐาน
+import { routesAgentsSession } from '@/routes/session';
+import { AgentStatus } from "@/hooks/useAgentStatus";
 
 // --- Skeleton Loader ---
 const SkeletonLoader = () => (
@@ -43,10 +36,14 @@ const SkeletonLoader = () => (
 );
 
 export default function AgentProfilePage() {
-  const [agent, setAgent] = useState<Agent | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  
+  // ✅ 1. เรียก Hook เช็คสถานะ
+  const { loading: authLoading } = AgentStatus();
+
+  const [agent, setAgent] = useState<Agent | null>(null);
+  const [loading, setLoading] = useState<boolean>(true); // Loading ของข้อมูล Profile
+  const [error, setError] = useState<string | null>(null);
   
   // State สำหรับโหมดแก้ไข
   const [isEditing, setIsEditing] = useState<boolean>(false);
@@ -59,19 +56,30 @@ export default function AgentProfilePage() {
   });
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
-  // Fetch Data
+  // ✅ 2. Fetch Data (รอ authLoading ก่อน)
   useEffect(() => {
     const fetchAgentData = async () => {
+      // ถ้ายืนยันตัวตนยังไม่เสร็จ อย่าเพิ่งทำอะไร
+      if (authLoading) return;
+
       try {
         setLoading(true);
+        
+        // 2.1 ตรวจสอบ Session และ Token
         const session = routesAgentsSession();
-        if (!session) {
+        const token = localStorage.getItem("token");
+
+        if (!session || !token) {
            router.push("/agent/login"); 
-           throw new Error("ไม่พบ Token กรุณาเข้าสู่ระบบใหม่");
+           throw new Error("กรุณาเข้าสู่ระบบใหม่");
         }
         
-        if (session && session.id) {
-          const response = await api.get<Agent>(`/agents/${session.id}`);
+        if (session.id) {
+          // 2.2 ส่ง Token ไปใน Header
+          const response = await api.get<Agent>(`/agents/${session.id}`, {
+             headers: { Authorization: `Bearer ${token}` }
+          });
+          
           setAgent(response.data);
           
           // Set ค่าเริ่มต้นให้ Form
@@ -87,7 +95,6 @@ export default function AgentProfilePage() {
         }
 
       } catch (err: unknown) {
-        // จัดการ Error แบบ Type Safe
         if (err instanceof Error) {
           console.error("Error fetching agent:", err.message);
           setError(err.message);
@@ -100,7 +107,7 @@ export default function AgentProfilePage() {
     };
 
     fetchAgentData();
-  }, []);
+  }, [authLoading, router]); // เพิ่ม dependencies
 
   // Handle Input Change
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -128,10 +135,13 @@ export default function AgentProfilePage() {
 
     try {
       setIsSaving(true);
-      // ส่งข้อมูลไปอัปเดต (สมมติว่า backend รับ PUT ที่ /agents/:id)
-      const response = await api.put<Agent>(`/agents/${agent._id}`, formData); // หรือ patch
+      const token = localStorage.getItem("token"); // ✅ ดึง Token สำหรับการบันทึก
+
+      // ✅ ส่ง Header Authorization ไปด้วย
+      const response = await api.put<Agent>(`/agents/${agent._id}`, formData, {
+         headers: { Authorization: `Bearer ${token}` }
+      }); 
       
-      // อัปเดต State หน้าจอด้วยข้อมูลใหม่จาก Server
       setAgent(response.data);
       setIsEditing(false);
       alert("บันทึกข้อมูลสำเร็จ");
@@ -146,10 +156,8 @@ export default function AgentProfilePage() {
     }
   };
 
-  // Handle Cancel Edit
   const handleCancel = () => {
     if (agent) {
-      // Revert กลับเป็นค่าเดิม
       setFormData({
         address: agent.address,
         phone: agent.phone,
@@ -182,13 +190,28 @@ export default function AgentProfilePage() {
     } catch { return "-"; }
   };
 
-  // --- Render ---
+  // -------------------------------------------------------------
+  // ✅ 3. Loading Gates
+  // -------------------------------------------------------------
+
+  // Gate 1: กำลังตรวจสอบสิทธิ์
+  if (authLoading) {
+      return (
+          <div className="flex flex-col h-screen items-center justify-center bg-slate-50">
+              <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
+              <p className="mt-4 text-slate-500">กำลังตรวจสอบสิทธิ์...</p>
+          </div>
+      );
+  }
+
+  // Gate 2: กำลังโหลดข้อมูล (ใช้ Skeleton เดิม)
   if (loading) return (
     <div className="min-h-screen bg-slate-50 py-10 px-4 sm:px-6 lg:px-8">
       <SkeletonLoader />
     </div>
   );
 
+  // Gate 3: Error หรือไม่พบข้อมูล
   if (error || !agent) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 text-slate-500">
       <User size={48} className="mb-4 text-slate-300" />

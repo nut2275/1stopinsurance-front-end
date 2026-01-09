@@ -5,13 +5,9 @@ import { useRouter } from 'next/navigation';
 import MenuAgent from '@/components/element/MenuAgent';
 import { Loader2, Search, User, Phone, Car, ShieldCheck, ChevronRight, Plus } from 'lucide-react';
 import Link from 'next/link';
-
-import { routesAgentsSession } from '@/routes/session'; // ✅ นำเข้าฟังก์ชันตรวจสอบ Session ถ้าจำเป็น
-
-
-// ✅ Import api ที่คุณสร้างไว้ (เช็ค Path ให้ถูกนะครับว่า services อยู่ตรงไหน)
+import { routesAgentsSession } from '@/routes/session';
 import api from '@/services/api'; 
-
+import { AgentStatus } from "@/hooks/useAgentStatus"; // ✅ 1. Import Hook
 
 interface CustomerList {
   _id: string;
@@ -26,18 +22,23 @@ interface CustomerList {
 }
 
 const AgentManageCustomerPage = () => {
+  // ✅ 2. ประกาศ Hooks ทั้งหมดก่อน
   const router = useRouter();
   const [customers, setCustomers] = useState<CustomerList[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // Loading ของข้อมูลลูกค้า
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // เรียกใช้ Hook เช็คสถานะ (ได้ authLoading มาด้วย)
+  const { loading: authLoading } = AgentStatus();
 
+  // ฟังก์ชันดึงข้อมูลลูกค้า
   const fetchCustomers = async () => {
     try {
       setLoading(true);
 
       const session = routesAgentsSession();
       if (!session) {
-         router.push('/agent/login'); // เปลี่ยน path ตามที่คุณใช้จริง
+         router.push('/agent/login');
          return;
       }
       const agentId = session.id;
@@ -48,30 +49,48 @@ const AgentManageCustomerPage = () => {
         return;
       }
 
-      // ✅ ใช้ api.get แทน axios.get
-      // ✅ ตัด http://localhost:5000 ออก เพราะอยู่ใน api.ts แล้ว
-      // ✅ แก้ Path เป็น 'agents' (เติม s) ตามที่คุณแจ้ง
+      // API Call
       const res = await api.get<CustomerList[]>(`/agents/my-customers/${agentId}?search=${searchTerm}`, {
-        headers: { Authorization: `Bearer ${session}` } // (Optional: ถ้าใน api.ts ใส่ interceptor แล้วก็ไม่ต้องใส่ตรงนี้ซ้ำ)
+        headers: { Authorization: `Bearer ${session}` } 
       });
 
       setCustomers(res.data);
 
     } catch (error: unknown) {
       console.error("Error fetching customers:", error);
+      // Optional: Handle 401 Unauthorized here as well if needed
     } finally {
       setLoading(false);
     }
   };
 
+  // ✅ 3. useEffect ต้องประกาศก่อน return ใดๆ
+  // เพิ่มเงื่อนไข: รอให้เช็ค Auth เสร็จก่อนค่อยดึงข้อมูล (!authLoading)
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
-      fetchCustomers();
+      if (!authLoading) {
+          fetchCustomers();
+      }
     }, 500);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [searchTerm]);
+  }, [searchTerm, authLoading]); // เพิ่ม authLoading เป็น dependency
 
+  // -------------------------------------------------------------
+  // ✅ 4. โซนการ Return (Loading Gates) ต้องอยู่ล่างสุด
+  // -------------------------------------------------------------
+
+  // Gate 1: ถ้ากำลังเช็คสิทธิ์ (Auth) ให้แสดง Loading
+  if (authLoading) {
+      return (
+          <div className="flex flex-col h-screen items-center justify-center bg-slate-50">
+              <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
+              <p className="mt-4 text-slate-500">กำลังตรวจสอบสิทธิ์...</p>
+          </div>
+      );
+  }
+
+  // Gate 2: หน้าจอหลัก
   return (
     <>
       <MenuAgent activePage='/agent/agent_manage_customer' />
@@ -86,6 +105,7 @@ const AgentManageCustomerPage = () => {
               <p className="text-slate-500 mt-1">บริหารจัดการข้อมูลลูกค้า ประวัติ และยานพาหนะ</p>
             </div>
             
+            {/* ปุ่มเพิ่มลูกค้า (ถ้าจะเปิดใช้ในอนาคต) */}
             {/* <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all shadow-sm shadow-blue-200">
                 <Plus className="w-4 h-4" /> เพิ่มลูกค้าใหม่
             </button> */}
