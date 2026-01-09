@@ -4,7 +4,9 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Assignment } from "@mui/icons-material";
 import MenuLogined from "@/components/element/MenuLogined";
+import MenuLogin from "@/components/element/MenuLogin";
 import InsuranceCard, { InsurancePlan } from "./InsuranceCard";
+import {routesCustomersSession} from '@/routes/session'; 
 
 /* =======================
    1️⃣ Raw data จาก Backend
@@ -179,12 +181,18 @@ export default function InsuranceResultsPage() {
   const showRecommended = filterList(recommendedPlans).length > 0;
   const showAlternative = filterList(alternativePlans).length > 0;
 
+  const MenuSession = routesCustomersSession() ? (
+    <MenuLogined activePage="/customer/car-insurance/car-Insurance-form" />
+  ) : (
+    <MenuLogin activePage="/customer/car-insurance/car-Insurance-form" />
+  );
   /* =======================
      JSX (เหมือนเดิม)
   ======================= */
   return (
     <div className="flex flex-col min-h-screen bg-[#cfe2ff]">
-      <MenuLogined activePage="/customer/car-insurance/insurance" />
+      {/* <MenuLogined activePage="/customer/car-insurance/insurance" /> */}
+      {MenuSession}
       <main className="flex-grow max-w-7xl mx-auto py-10 px-4 w-full">
         
         {/* Header: จัดปุ่มให้อยู่ตรงกับหัวข้อ */}
