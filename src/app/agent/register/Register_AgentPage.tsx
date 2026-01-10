@@ -6,7 +6,9 @@ import Link from "next/link";
 import { AxiosError } from "axios";
 import api from "@/services/api";
 import MenuLogin from "@/components/element/MenuLogin";
+import { Camera, AlertCircle } from "lucide-react"; // เพิ่ม Icon
 
+// --- Types ---
 interface RegisterFormState {
   first_name: string;
   last_name: string;
@@ -21,7 +23,7 @@ interface RegisterFormState {
   username: string;
   password: string;
   passwordConfirm: string;
-  [key: string]: string;
+  [key: string]: string; // Index signature for dynamic access
 }
 
 interface ApiErrorResponse {
@@ -29,10 +31,16 @@ interface ApiErrorResponse {
   error?: string;
 }
 
-interface NotificationError {
-  response?: {
-    data?: any;
-  };
+// ✅ Type ที่ชัดเจนขึ้น
+interface NotificationPayload {
+    recipientType: string;
+    recipientId: string;
+    message: string;
+    type: string;
+    sender: {
+        name: string;
+        role: string;
+    }
 }
 
 export default function RegisterAgentPage() {
@@ -47,7 +55,7 @@ export default function RegisterAgentPage() {
     address: "",
     phone: "",
     idLine: "",
-    imgProfile: "",
+    imgProfile: "", // ต้องมีค่า Base64
     note: "",
     birth_date: "",
     username: "",
@@ -56,6 +64,7 @@ export default function RegisterAgentPage() {
   });
 
   const [isEdit, setIsEdit] = useState<boolean>(false);
+  const [errorImg, setErrorImg] = useState<string>(""); // ✅ State เก็บ Error รูปภาพ
 
   useEffect(() => {
     const action = searchParams.get("action");
@@ -87,7 +96,6 @@ export default function RegisterAgentPage() {
   ) => {
     const { id, value } = e.target;
     
-    // ✅ Logic 1: บังคับช่องตัวเลขให้พิมพ์ได้แค่เลข และไม่เกิน 10 หลัก
     if (id === "phone" || id === "agent_license_number") {
       const numericValue = value.replace(/\D/g, "").slice(0, 10);
       setForm((prev) => ({ ...prev, [id]: numericValue }));
@@ -98,6 +106,8 @@ export default function RegisterAgentPage() {
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    setErrorImg(""); // เคลียร์ Error เมื่อมีการเลือกไฟล์
+
     if (file) {
       if (file.size > 5 * 1024 * 1024) { 
         alert("ขนาดไฟล์รูปภาพต้องไม่เกิน 5MB");
@@ -115,26 +125,29 @@ export default function RegisterAgentPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    setErrorImg("");
 
-    // ✅ Logic 2: Validation Rules (ตรวจสอบเงื่อนไข)
-    
-    // 2.1 เลขใบอนุญาตต้อง 10 หลัก
+    // ✅ Validate 1: รูปโปรไฟล์ต้องมี
+    if (!form.imgProfile) {
+        setErrorImg("กรุณาอัปโหลดรูปโปรไฟล์");
+        // เลื่อนหน้าจอไปหาจุดที่ Error
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+    }
+
     if (form.agent_license_number.length !== 10) {
       return alert("เลขที่ใบอนุญาตต้องเป็นตัวเลข 10 หลักเท่านั้น");
     }
 
-    // 2.2 เบอร์โทรต้อง 10 หลัก
     if (form.phone.length !== 10) {
       return alert("เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลักเท่านั้น");
     }
 
-    // 2.3 Username ต้องปลอดภัย (A-Z, 0-9, 4-20 ตัว)
     const usernameRegex = /^[a-zA-Z0-9_]{4,20}$/;
     if (!usernameRegex.test(form.username)) {
       return alert("Username ต้องเป็นภาษาอังกฤษหรือตัวเลข ความยาว 4-20 ตัวอักษร และไม่มีอักขระพิเศษ");
     }
 
-    // 2.4 Password ต้องปลอดภัย (ขั้นต่ำ 8 ตัว)
     if (form.password.length < 8) {
       return alert("รหัสผ่านต้องมีความยาวอย่างน้อย 8 ตัวอักษร");
     }
@@ -149,9 +162,10 @@ export default function RegisterAgentPage() {
       } else {
         await api.post("/agents/register", form);
 
+        // ✅ Notification Logic (Type Safe)
         try {
             const fakeAdminId = "000000000000000000000000"; 
-            await api.post("/api/notifications", {
+            const notiPayload: NotificationPayload = {
                 recipientType: 'admin',
                 recipientId: fakeAdminId, 
                 message: `มีตัวแทนใหม่สมัครสมาชิก: ${form.first_name} ${form.last_name}`,
@@ -160,10 +174,11 @@ export default function RegisterAgentPage() {
                     name: `${form.first_name} ${form.last_name}`,
                     role: 'agent' 
                 }
-            });
+            };
+            
+            await api.post("/api/notifications", notiPayload);
         } catch (error) {
-            const notiError = error as NotificationError;
-            console.log("Notification Error Detail:", notiError.response?.data);
+            console.error("Notification Error:", error);
         }
 
         alert("สมัครสมาชิกสำเร็จ! กรุณารอการอนุมัติ");
@@ -190,31 +205,27 @@ export default function RegisterAgentPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           
+          {/* --- Profile Image Upload Section --- */}
           <div className="flex flex-col items-center justify-center mb-6">
-            <div className="relative w-32 h-32 mb-4">
+            <div className={`relative w-32 h-32 mb-2 group ${errorImg ? 'animate-pulse' : ''}`}>
               {form.imgProfile ? (
                 <img
                   src={form.imgProfile}
                   alt="Profile Preview"
-                  className="w-full h-full object-cover rounded-full border-4 border-blue-100 shadow-sm"
+                  className={`w-full h-full object-cover rounded-full border-4 shadow-sm ${errorImg ? 'border-red-400' : 'border-blue-100'}`}
                 />
               ) : (
-                <div className="w-full h-full rounded-full bg-gray-200 flex items-center justify-center border-4 border-gray-100 text-gray-400">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                  </svg>
+                <div className={`w-full h-full rounded-full flex items-center justify-center border-4 text-gray-400 transition-colors ${errorImg ? 'bg-red-50 border-red-300 text-red-300' : 'bg-gray-200 border-gray-100'}`}>
+                  <Camera className="w-12 h-12" />
                 </div>
               )}
               
               <label 
                 htmlFor="imgProfileInput" 
-                className="absolute bottom-0 right-0 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full cursor-pointer shadow-md transition-colors"
+                className={`absolute bottom-0 right-0 p-2 rounded-full cursor-pointer shadow-md transition-all hover:scale-110 ${errorImg ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
                 title="อัปโหลดรูปโปรไฟล์"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
-                </svg>
+                <Camera className="w-5 h-5" />
               </label>
               <input
                 id="imgProfileInput"
@@ -224,7 +235,16 @@ export default function RegisterAgentPage() {
                 className="hidden" 
               />
             </div>
-            <p className="text-sm text-gray-500">รูปโปรไฟล์ (ไม่เกิน 5MB)</p>
+            
+            <p className="text-sm text-gray-500">รูปโปรไฟล์ (ไม่เกิน 5MB) <span className="text-red-500">*</span></p>
+            
+            {/* 🚩 Error Message */}
+            {errorImg && (
+                <div className="flex items-center gap-1 text-red-500 text-sm mt-1 bg-red-50 px-3 py-1 rounded-full border border-red-200 animate-in fade-in slide-in-from-top-1">
+                    <AlertCircle className="w-4 h-4" />
+                    <span>{errorImg}</span>
+                </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -238,7 +258,7 @@ export default function RegisterAgentPage() {
                 placeholder="ชื่อจริง"
                 value={form.first_name}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md p-2"
+                className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                 required
               />
             </div>
@@ -252,12 +272,13 @@ export default function RegisterAgentPage() {
                 placeholder="นามสกุล"
                 value={form.last_name}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md p-2"
+                className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                 required
               />
             </div>
           </div>
 
+          {/* ... (ส่วนอื่นๆ ของ Form เหมือนเดิม) ... */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label htmlFor="birth_date" className="block font-medium mb-1">
@@ -268,7 +289,7 @@ export default function RegisterAgentPage() {
                 type="date"
                 value={form.birth_date}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md p-2"
+                className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                 required
               />
             </div>
@@ -283,11 +304,11 @@ export default function RegisterAgentPage() {
                 id="agent_license_number"
                 type="text"
                 inputMode="numeric"
-                maxLength={10} // ✅ Limit Input length
+                maxLength={10}
                 placeholder="เลขที่ใบอนุญาตนายหน้า (10 หลัก)"
                 value={form.agent_license_number}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md p-2"
+                className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                 required
               />
             </div>
@@ -305,7 +326,7 @@ export default function RegisterAgentPage() {
               type="date"
               value={form.card_expiry_date}
               onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md p-2"
+              className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
               required
             />
           </div>
@@ -319,12 +340,12 @@ export default function RegisterAgentPage() {
                 id="phone"
                 type="tel"
                 inputMode="numeric"
-                maxLength={10} // ✅ Limit Input length
+                maxLength={10}
                 pattern="[0-9]*"
                 placeholder="08XXXXXXXX"
                 value={form.phone}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md p-2"
+                className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                 required
               />
             </div>
@@ -338,8 +359,8 @@ export default function RegisterAgentPage() {
                 placeholder="ไอดีไลน์"
                 value={form.idLine}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md p-2"
-                required // ✅ บังคับกรอกตามเงื่อนไขใหม่
+                className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                required
               />
             </div>
           </div>
@@ -354,7 +375,7 @@ export default function RegisterAgentPage() {
               placeholder="ที่อยู่ปัจจุบัน"
               value={form.address}
               onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md p-2"
+              className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
               required
             />
           </div>
@@ -369,7 +390,7 @@ export default function RegisterAgentPage() {
                 placeholder="บันทึกเพิ่มเติม..."
                 value={form.note}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md p-2"
+                className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
               />
           </div>
 
@@ -388,7 +409,7 @@ export default function RegisterAgentPage() {
                   placeholder="ตั้งชื่อผู้ใช้ (อังกฤษ/ตัวเลข 4-20 ตัว)"
                   value={form.username}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-md p-2"
+                  className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                   required
                 />
               </div>
@@ -406,7 +427,7 @@ export default function RegisterAgentPage() {
                   placeholder="รหัสผ่าน (ขั้นต่ำ 8 ตัว)"
                   value={form.password}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-md p-2"
+                  className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                   required
                   minLength={8}
                 />
@@ -425,7 +446,7 @@ export default function RegisterAgentPage() {
                   placeholder="ยืนยันรหัสผ่านอีกครั้ง"
                   value={form.passwordConfirm}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-md p-2"
+                  className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                   required
                   minLength={8}
                 />
@@ -435,7 +456,7 @@ export default function RegisterAgentPage() {
 
           <button
             type="submit"
-            className="bg-blue-700 w-full mt-6 text-white px-4 py-3 rounded-lg font-bold hover:bg-blue-800 transition shadow-md"
+            className="bg-blue-700 w-full mt-6 text-white px-4 py-3 rounded-lg font-bold hover:bg-blue-800 transition shadow-md active:scale-[0.98]"
           >
             {isEdit ? "บันทึกการแก้ไข" : "สมัครสมาชิก"}
           </button>
