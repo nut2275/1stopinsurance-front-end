@@ -7,7 +7,7 @@ function page() {
   return (
     <>
       {/* Header */}
-      <MenuLogined />
+      <MenuLogined activePage='/customer/notification'/>
       
       <NotificationsPage />
     </>

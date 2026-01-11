@@ -209,6 +209,7 @@ export default function RegisterAgentPage() {
           <div className="flex flex-col items-center justify-center mb-6">
             <div className={`relative w-32 h-32 mb-2 group ${errorImg ? 'animate-pulse' : ''}`}>
               {form.imgProfile ? (
+                
                 <img
                   src={form.imgProfile}
                   alt="Profile Preview"

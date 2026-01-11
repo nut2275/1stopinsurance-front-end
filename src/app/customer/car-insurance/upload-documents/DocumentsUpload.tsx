@@ -133,7 +133,7 @@ export default function UploadDocumentsPage() {
       const carRegBase64 = await toBase64(carRegFile);
 
       // --- จัดการ customer_id ---
-      let rawCustomerId = localStorage.getItem("customerBuyId");
+      const rawCustomerId = localStorage.getItem("customerBuyId");
       let cleanCustomerId = "";
 
       if (rawCustomerId) {
