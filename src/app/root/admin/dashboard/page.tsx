@@ -5,6 +5,7 @@ import axios from 'axios';
 import * as XLSX from 'xlsx'; 
 import { AdminDashboardData } from './types';
 import { Loader2, RefreshCw, LayoutDashboard, Download } from 'lucide-react';
+import api from '@/services/api';
 
 // Admin Components
 import AdminStatsCards from './components/AdminStatsCards';
@@ -75,7 +76,7 @@ const AdminDashboardPage = () => {
           queryParams = `?startDate=${startStr}&endDate=${endStr}`;
       }
 
-      const res = await axios.get<AdminDashboardData>(`http://localhost:5000/admin/dashboard${queryParams}`);
+      const res = await api.get<AdminDashboardData>(`/admin/dashboard${queryParams}`);
       setData(res.data);
 
     } catch (error) {

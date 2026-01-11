@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
 import { useRouter } from 'next/navigation'; // ✅ ใช้สำหรับ Redirect ถ้าไม่มี Token
-import { jwtDecode } from 'jwt-decode';      // ✅ Import jwt-decode
 import { DashboardData } from './types';
 import { Loader2, RefreshCw } from 'lucide-react';
+import api from "@/services/api";
+import axios from "axios";
 
 // Components
 import StatsCards from './components/StatsCards';
@@ -35,71 +35,86 @@ const AgentDashboard = () => {
   
 
 
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
+    const fetchDashboardData = async () => {
+        try {
+        setLoading(true);
 
-      // ดึงข้อมูลจาก localStorage และถอดรหัส Token
-      const session = routesAgentsSession();
-      if (!session) {
-         router.push("/agent/login");
-         return;
-      }
-      const myAgentId = session.id; // ✨ ได้ ID จริงมาใช้งานแล้ว!
-
-      if (!myAgentId) {
-          throw new Error("Token ไม่ถูกต้อง: ไม่พบ ID ผู้ใช้งาน");
-      }
-
-
-      // ---------------------------------------------------------
-      // ✅ 2. เตรียม Query Params (Filter วันที่)
-      // ---------------------------------------------------------
-      let queryParams = "";
-      const now = new Date();
-      let startDate: Date | null = null;
-      const endDate: Date | null = new Date(); 
-
-      if (filter === 'this_month') {
-          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-      } else if (filter === 'last_30_days') {
-          startDate = new Date();
-          startDate.setDate(now.getDate() - 30);
-      } else if (filter === 'last_7_days') {
-        startDate = new Date();
-        startDate.setDate(now.getDate() - 7);
-      }
-      
-      if (startDate && endDate && filter !== 'all') {
-          const startStr = startDate.toISOString().split('T')[0];
-          const endStr = endDate.toISOString().split('T')[0];
-          queryParams = `?startDate=${startStr}&endDate=${endStr}`;
-      }
-
-      // ---------------------------------------------------------
-      // ✅ 3. ยิง API ด้วย Agent ID จริง
-      // ---------------------------------------------------------
-      // *หมายเหตุ: ควรส่ง Header Authorization ไปด้วยเพื่อความปลอดภัยขั้นสูง (Optional)
-      const res = await axios.get(
-        `http://localhost:5000/purchase/agent/customer-stats/${myAgentId}${queryParams}`,
-        {
-            headers: { Authorization: `Bearer ${session}` } // ส่ง Token ไปยืนยันตัวตนกับ Backend
+        // ---------------------------------------------------------
+        // ✅ 1. เตรียม Token และ ID
+        // ---------------------------------------------------------
+        const session = routesAgentsSession();
+        if (!session) {
+            router.push("/agent/login");
+            return;
         }
-      );
-      
-      setData(res.data);
+        // สมมติว่า session มี type รองรับอยู่แล้ว (ถ้าไม่มีให้สร้าง Interface มารับ)
+        const myAgentId = session.id; 
 
-    } catch (error) {
-      console.error("Error fetching stats:", error);
-      // กรณี Token หมดอายุ (Backend ตอบกลับ 401)
-      if (axios.isAxiosError(error) && error.response?.status === 401) {
-          localStorage.removeItem("token");
-          router.push("/login");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+        const token = localStorage.getItem("token"); 
+
+        if (!myAgentId || !token) {
+            throw new Error("ข้อมูลยืนยันตัวตนไม่ถูกต้อง");
+        }
+
+        // ---------------------------------------------------------
+        // ✅ 2. เตรียม Query Params
+        // ---------------------------------------------------------
+        let queryParams = "";
+        const now = new Date();
+        let startDate: Date | null = null;
+        const endDate: Date | null = new Date(); 
+
+        if (filter === 'this_month') {
+            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        } else if (filter === 'last_30_days') {
+            startDate = new Date();
+            startDate.setDate(now.getDate() - 30);
+        } else if (filter === 'last_7_days') {
+            startDate = new Date();
+            startDate.setDate(now.getDate() - 7);
+        }
+        
+        if (startDate && endDate && filter !== 'all') {
+            const startStr = startDate.toISOString().split('T')[0];
+            const endStr = endDate.toISOString().split('T')[0];
+            queryParams = `?startDate=${startStr}&endDate=${endStr}`;
+        }
+
+        // ---------------------------------------------------------
+        // ✅ 3. ยิง API
+        // ---------------------------------------------------------
+        const res = await api.get(
+            `/purchase/agent/customer-stats/${myAgentId}${queryParams}`,
+            {
+                headers: { Authorization: `Bearer ${token}` }
+            }
+        );
+        
+        setData(res.data);
+
+        } catch (error: unknown) { // 👈 ใช้ unknown แทน any
+        
+        // ✅ ใช้ Type Guard เช็คว่าเป็น Error จาก Axios หรือไม่
+        if (axios.isAxiosError(error)) {
+            console.error("Axios Error:", error.message);
+            
+            // ตอนนี้ TypeScript รู้จัก error.response แล้ว
+            if (error.response?.status === 401) {
+                localStorage.removeItem("token");
+                router.push("/login");
+            }
+        } else if (error instanceof Error) {
+            // กรณีเป็น Error ทั่วไป (เช่น throw new Error ด้านบน)
+            console.error("General Error:", error.message);
+        } else {
+            // กรณี error เป็นอะไรก็ไม่รู้ (เช่น string หรือ object แปลกๆ)
+            console.error("Unknown Error:", error);
+        }
+
+        } finally {
+        setLoading(false);
+        }
+    };
 
   // ✅ 2. useEffect ต้องประกาศก่อนการ return ใดๆ
   useEffect(() => {
